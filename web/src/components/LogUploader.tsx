@@ -89,8 +89,8 @@ export function LogUploader({ onAnalysisStart, isAnalyzing, error }: LogUploader
             className={cn(
               'relative border-2 border-dashed rounded-2xl p-12 transition-all cursor-pointer group',
               status === 'dragging'
-                ? 'border-blue-500 bg-blue-500/5'
-                : 'border-slate-800 hover:border-slate-700 bg-slate-950/50 hover:bg-slate-900/40'
+                ? 'border-primary bg-blue-500/5'
+                : 'border-border hover:border-muted bg-card/50 hover:bg-card/40'
             )}
           >
             <input
@@ -102,14 +102,14 @@ export function LogUploader({ onAnalysisStart, isAnalyzing, error }: LogUploader
             />
             <div className="flex flex-col items-center gap-4 text-center">
               <div className={cn(
-                'w-16 h-16 rounded-full bg-slate-900 flex items-center justify-center border border-slate-800 group-hover:scale-110 transition-transform',
-                status === 'dragging' && 'border-blue-500 text-blue-500 animate-bounce'
+                'w-16 h-16 rounded-full bg-card flex items-center justify-center border border-border group-hover:scale-110 transition-transform',
+                status === 'dragging' && 'border-primary text-primary animate-bounce'
               )}>
-                <Upload className={cn('w-8 h-8', status === 'dragging' ? 'text-blue-500' : 'text-slate-500')} />
+                <Upload className={cn('w-8 h-8', status === 'dragging' ? 'text-primary' : 'text-muted-foreground')} />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-white mb-1">Upload Operational Logs</h3>
-                <p className="text-sm text-slate-500 max-w-xs mx-auto">
+                <h3 className="text-lg font-bold text-foreground mb-1">Upload Operational Logs</h3>
+                <p className="text-sm text-muted-foreground max-w-xs mx-auto">
                   Drag and drop .log, .txt, or .json files to trigger automated incident analysis.
                 </p>
               </div>
@@ -120,12 +120,12 @@ export function LogUploader({ onAnalysisStart, isAnalyzing, error }: LogUploader
             key="status"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl"
+            className="bg-card border border-border rounded-2xl p-8 shadow-2xl"
           >
             <div className="flex items-start gap-5">
               <div className={cn(
                 'w-12 h-12 rounded-xl flex items-center justify-center shrink-0',
-                status === 'reading' || status === 'analyzing' || isAnalyzing ? 'bg-blue-500/10 text-blue-500' :
+                status === 'reading' || status === 'analyzing' || isAnalyzing ? 'bg-primary/10 text-primary' :
                   'bg-red-500/10 text-red-500'
               )}>
                 {status === 'reading' && <Loader2 className="w-6 h-6 animate-spin" />}
@@ -137,8 +137,8 @@ export function LogUploader({ onAnalysisStart, isAnalyzing, error }: LogUploader
                 {status === 'error' && <AlertCircle className="w-6 h-6" />}
               </div>
               <div className="flex-1 min-w-0">
-                <h4 className="font-bold text-white truncate max-w-[400px]">{fileName ?? 'Processing'}</h4>
-                <p className="text-xs text-slate-500 mt-1 uppercase font-mono tracking-tighter">
+                <h4 className="font-bold text-foreground truncate max-w-[400px]">{fileName ?? 'Processing'}</h4>
+                <p className="text-xs text-muted-foreground mt-1 uppercase font-mono tracking-tighter">
                   {status === 'reading' && 'Reading file…'}
                   {(status === 'analyzing' || isAnalyzing) && 'LangGraph pipeline running…'}
                   {status === 'error' && 'Pipeline error'}

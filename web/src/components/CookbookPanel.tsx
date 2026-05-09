@@ -28,25 +28,25 @@ export function CookbookPanel({ analysis }: CookbookPanelProps) {
 
   return (
     <div className="space-y-8">
-      <div className="flex border border-slate-800 bg-slate-900/50 rounded-xl divide-x divide-slate-800 overflow-hidden">
-        <Stat icon={Clock} label="Est. Duration" value={analysis.estimatedTime ?? '—'} color="text-blue-500" />
+      <div className="flex border border-border bg-card/50 rounded-xl divide-x divide-border overflow-hidden">
+        <Stat icon={Clock} label="Est. Duration" value={analysis.estimatedTime ?? '—'} color="text-primary" />
         <Stat icon={ShieldCheck} label="Escalation" value={analysis.recommendedEscalation ?? '—'} color="text-green-500" />
-        <Stat icon={Terminal} label="Steps" value={`${steps.length}`} color="text-slate-400" />
+        <Stat icon={Terminal} label="Steps" value={`${steps.length}`} color="text-muted-foreground" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-black text-white uppercase tracking-tight flex items-center gap-2">
-                <CheckSquare className="w-4 h-4 text-blue-500" />
+              <h3 className="text-sm font-black text-foreground uppercase tracking-tight flex items-center gap-2">
+                <CheckSquare className="w-4 h-4 text-primary" />
                 Remediation Sequence
               </h3>
               <div className="flex items-center gap-4">
-                <div className="text-[10px] font-mono text-slate-500">
+                <div className="text-[10px] font-mono text-muted-foreground">
                   {Object.values(completedSteps).filter(Boolean).length} / {steps.length} COMPLETE
                 </div>
-                <div className="w-24 h-1 bg-slate-800 rounded-full overflow-hidden">
+                <div className="w-24 h-1 bg-muted rounded-full overflow-hidden">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${progress}%` }}
@@ -57,7 +57,7 @@ export function CookbookPanel({ analysis }: CookbookPanelProps) {
             </div>
 
             {steps.length === 0 ? (
-              <p className="text-xs text-slate-500 italic p-4 border border-dashed border-slate-800 rounded-xl">
+              <p className="text-xs text-muted-foreground italic p-4 border border-dashed border-border rounded-xl">
                 No steps were generated for this incident.
               </p>
             ) : (
@@ -69,16 +69,16 @@ export function CookbookPanel({ analysis }: CookbookPanelProps) {
                     className={cn(
                       'p-4 rounded-xl border transition-all cursor-pointer group',
                       completedSteps[idx]
-                        ? 'bg-slate-900/30 border-green-500/20 opacity-60'
-                        : 'bg-slate-900/50 border-slate-800 hover:border-slate-700 shadow-sm'
+                        ? 'bg-muted/30 border-green-500/20 opacity-60'
+                        : 'bg-card/50 border-border hover:border-muted shadow-sm'
                     )}
                   >
                     <div className="flex gap-4">
                       <button className={cn(
                         'w-5 h-5 rounded flex items-center justify-center shrink-0 transition-colors',
-                        completedSteps[idx] ? 'bg-green-500 text-slate-950' : 'bg-slate-950 border border-slate-800 text-slate-700 group-hover:border-slate-600'
+                        completedSteps[idx] ? 'bg-green-500 text-slate-950' : 'bg-background border border-border text-muted-foreground/50 group-hover:border-slate-600'
                       )}>
-                        {completedSteps[idx] ? <ShieldCheck className="w-3 h-3" /> : <div className="w-1.5 h-1.5 rounded-full bg-slate-800" />}
+                        {completedSteps[idx] ? <ShieldCheck className="w-3 h-3" /> : <div className="w-1.5 h-1.5 rounded-full bg-muted" />}
                       </button>
                       <div className="flex-1">
                         <div className="prose prose-invert prose-sm max-w-none">
@@ -100,7 +100,7 @@ export function CookbookPanel({ analysis }: CookbookPanelProps) {
               </h3>
               <ul className="space-y-2">
                 {analysis.validationSteps.map((v, i) => (
-                  <li key={i} className="text-xs text-slate-400">{v}</li>
+                  <li key={i} className="text-xs text-muted-foreground">{v}</li>
                 ))}
               </ul>
             </div>
@@ -116,7 +116,7 @@ export function CookbookPanel({ analysis }: CookbookPanelProps) {
               </h3>
               <div className="space-y-4">
                 {analysis.rollbackPlan.map((r, i) => (
-                  <div key={i} className="text-xs text-slate-400 leading-relaxed pl-4 border-l border-red-900/50 italic">
+                  <div key={i} className="text-xs text-muted-foreground leading-relaxed pl-4 border-l border-red-900/50 italic">
                     {r}
                   </div>
                 ))}
@@ -125,9 +125,9 @@ export function CookbookPanel({ analysis }: CookbookPanelProps) {
           )}
 
           {analysis.reasoning && (
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-              <h4 className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-widest mb-3">Reasoning</h4>
-              <p className="text-xs text-slate-400 italic">{analysis.reasoning}</p>
+            <div className="bg-card border border-border rounded-2xl p-6">
+              <h4 className="text-[10px] font-mono font-bold text-muted-foreground uppercase tracking-widest mb-3">Reasoning</h4>
+              <p className="text-xs text-muted-foreground italic">{analysis.reasoning}</p>
             </div>
           )}
         </div>
@@ -150,8 +150,8 @@ function Stat({ icon: Icon, label, value, color }: StatProps) {
         <Icon className="w-4 h-4" />
       </div>
       <div>
-        <div className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">{label}</div>
-        <div className="text-xs font-bold text-white">{value}</div>
+        <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">{label}</div>
+        <div className="text-xs font-bold text-foreground">{value}</div>
       </div>
     </div>
   );

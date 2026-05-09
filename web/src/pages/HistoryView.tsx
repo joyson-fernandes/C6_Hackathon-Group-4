@@ -73,8 +73,8 @@ export function HistoryView() {
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center h-full space-y-4">
-      <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-      <span className="text-slate-500 font-mono text-sm tracking-widest uppercase">Syncing_Incident_Repository...</span>
+      <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      <span className="text-muted-foreground font-mono text-sm tracking-widest uppercase">Syncing_Incident_Repository...</span>
     </div>
   );
 
@@ -88,22 +88,22 @@ export function HistoryView() {
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-           <div className="w-1.5 h-10 bg-blue-600 rounded-full" />
+           <div className="w-1.5 h-10 bg-primary rounded-full" />
            <div>
-             <h1 className="text-3xl font-bold text-white tracking-tight">Incident Command</h1>
-             <div className="flex items-center gap-2 text-slate-400 mt-1">
+             <h1 className="text-3xl font-bold text-foreground tracking-tight">Incident Command</h1>
+             <div className="flex items-center gap-2 text-muted-foreground mt-1">
                <span className="flex items-center gap-1.5">
                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                  <span className="text-[10px] font-mono tracking-widest uppercase">Live System Feed</span>
                </span>
-               <span className="text-slate-700 mx-2">|</span>
+               <span className="text-muted-foreground/50 mx-2">|</span>
                <p className="text-sm">Real-time observability and automated recovery audit.</p>
              </div>
            </div>
         </div>
         <div className="flex items-center gap-3">
-          <button className="px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-md text-xs font-bold text-slate-300 flex items-center gap-2 transition-colors group">
-            <Download className="w-4 h-4 group-hover:text-blue-500 transition-colors" /> Export Operations Audit
+          <button className="px-4 py-2 bg-card hover:bg-muted border border-border rounded-md text-xs font-bold text-foreground/90 flex items-center gap-2 transition-colors group">
+            <Download className="w-4 h-4 group-hover:text-primary transition-colors" /> Export Operations Audit
           </button>
           <button
             onClick={handleClearHistory}
@@ -111,8 +111,8 @@ export function HistoryView() {
             className={cn(
               'px-4 py-2 border rounded-md text-xs font-bold flex items-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed',
               confirmingClear
-                ? 'bg-red-600 hover:bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/20'
-                : 'bg-slate-900 hover:bg-red-900/20 border-slate-800 hover:border-red-500/50 text-slate-300 hover:text-red-300'
+                ? 'bg-red-600 hover:bg-red-500 border-red-500 text-foreground shadow-lg shadow-red-500/20'
+                : 'bg-card hover:bg-red-900/20 border-border hover:border-red-500/50 text-foreground/90 hover:text-red-300'
             )}
           >
             <Trash2 className="w-4 h-4" />
@@ -136,7 +136,7 @@ export function HistoryView() {
           label="Workflows In Flight" 
           value={activeWorkflows} 
           icon={Zap} 
-          color="text-blue-500" 
+          color="text-primary" 
           badge="Live Agents"
         />
         <SummaryCard 
@@ -156,11 +156,11 @@ export function HistoryView() {
       </div>
 
       {/* Main Incident Section */}
-      <Card className="p-0 border-slate-800/60 shadow-2xl relative overflow-visible">
+      <Card className="p-0 border-border/60 shadow-2xl relative overflow-visible">
         {/* Table Filters */}
-        <div className="p-5 border-b border-slate-800 flex flex-wrap gap-4 items-center bg-slate-900/20 backdrop-blur-sm sticky top-[64px] z-30 rounded-t-xl">
+        <div className="p-5 border-b border-border flex flex-wrap gap-4 items-center bg-muted/20 backdrop-blur-sm sticky top-[64px] z-30 rounded-t-xl">
           <div className="relative flex-1 min-w-[280px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input 
               type="text" 
               placeholder="Search by ID, Service, or Incident Type..." 
@@ -169,19 +169,19 @@ export function HistoryView() {
                 setSearchQuery(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full bg-slate-950/80 border border-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 rounded-lg py-2 pl-10 pr-4 text-sm text-slate-300 outline-none transition-all placeholder:text-slate-600"
+              className="w-full bg-background/80 border border-border focus:border-primary focus:ring-1 focus:ring-blue-500/20 rounded-lg py-2 pl-10 pr-4 text-sm text-foreground/90 outline-none transition-all placeholder:text-muted-foreground/70"
             />
           </div>
           <div className="flex gap-2">
-            <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg px-3 gap-2">
-               <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest whitespace-nowrap">Severity</span>
+            <div className="flex items-center bg-background border border-border rounded-lg px-3 gap-2">
+               <span className="text-[9px] font-bold text-muted-foreground/70 uppercase tracking-widest whitespace-nowrap">Severity</span>
                <select 
                  value={severityFilter}
                  onChange={(e) => {
                    setSeverityFilter(e.target.value);
                    setCurrentPage(1);
                  }}
-                 className="bg-transparent border-none text-xs font-bold py-2 text-slate-300 focus:outline-none cursor-pointer"
+                 className="bg-transparent border-none text-xs font-bold py-2 text-foreground/90 focus:outline-none cursor-pointer"
                >
                  <option value="All">All</option>
                  <option value="P0">P0</option>
@@ -191,15 +191,15 @@ export function HistoryView() {
                </select>
             </div>
             
-            <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg px-3 gap-2">
-               <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest whitespace-nowrap">Status</span>
+            <div className="flex items-center bg-background border border-border rounded-lg px-3 gap-2">
+               <span className="text-[9px] font-bold text-muted-foreground/70 uppercase tracking-widest whitespace-nowrap">Status</span>
                <select 
                  value={statusFilter}
                  onChange={(e) => {
                    setStatusFilter(e.target.value);
                    setCurrentPage(1);
                  }}
-                 className="bg-transparent border-none text-xs font-bold py-2 text-slate-300 focus:outline-none cursor-pointer"
+                 className="bg-transparent border-none text-xs font-bold py-2 text-foreground/90 focus:outline-none cursor-pointer"
                >
                  <option value="All">All</option>
                  <option value="Active">Active</option>
@@ -215,7 +215,7 @@ export function HistoryView() {
         {/* Desktop Table View */}
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
-            <thead className="bg-slate-900/40 text-slate-500 text-[10px] uppercase font-mono tracking-[0.15em] border-b border-slate-800">
+            <thead className="bg-card/40 text-muted-foreground text-[10px] uppercase font-mono tracking-[0.15em] border-b border-border">
               <tr>
                 <th className="px-6 py-4 w-10"></th>
                 <th className="px-6 py-4 font-bold">Timestamp</th>
@@ -227,40 +227,40 @@ export function HistoryView() {
                 <th className="px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/50">
+            <tbody className="divide-y divide-border/50">
               {paginatedIncidents.map((incident) => (
                 <React.Fragment key={incident.id}>
                   <tr 
                     className={cn(
-                      "group hover:bg-slate-800/20 transition-colors cursor-pointer",
+                      "group hover:bg-muted/20 transition-colors cursor-pointer",
                       expandedRows[incident.id] ? "bg-blue-900/5" : ""
                     )}
                     onClick={() => toggleRow(incident.id)}
                   >
                     <td className="px-6 py-4">
                       {expandedRows[incident.id] ? (
-                        <ChevronUp className="w-4 h-4 text-slate-400" />
+                        <ChevronUp className="w-4 h-4 text-muted-foreground" />
                       ) : (
-                        <ChevronDown className="w-4 h-4 text-slate-600 group-hover:text-slate-400" />
+                        <ChevronDown className="w-4 h-4 text-muted-foreground/70 group-hover:text-muted-foreground" />
                       )}
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-xs font-mono text-slate-400">
+                      <div className="text-xs font-mono text-muted-foreground">
                         {format(new Date(incident.timestamp), 'HH:mm:ss')}
                       </div>
-                      <div className="text-[10px] text-slate-600 font-mono uppercase mt-0.5">
+                      <div className="text-[10px] text-muted-foreground/70 font-mono uppercase mt-0.5">
                         {format(new Date(incident.timestamp), 'MMM dd')}
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors">{incident.serviceName}</div>
-                      <div className="text-[10px] text-slate-500 font-mono mt-0.5">{incident.id}</div>
+                      <div className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">{incident.serviceName}</div>
+                      <div className="text-[10px] text-muted-foreground font-mono mt-0.5">{incident.id}</div>
                     </td>
                     <td className="px-6 py-4">
                       <SeverityBadge severity={incident.severity} />
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-xs font-medium text-slate-300">{incident.incidentType}</span>
+                      <span className="text-xs font-medium text-foreground/90">{incident.incidentType}</span>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
@@ -270,13 +270,13 @@ export function HistoryView() {
                           incident.status === 'analyzing' ? "bg-blue-500" :
                           incident.status === 'resolved' ? "bg-green-500" : "bg-slate-500"
                         )} />
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">
                           {incident.status}
                         </span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                       <div className="flex items-center gap-2 text-xs font-mono text-blue-400/80">
+                       <div className="flex items-center gap-2 text-xs font-mono text-primary/80">
                          <Zap className="w-3 h-3" />
                          {incident.assignedWorkflow}
                        </div>
@@ -284,7 +284,7 @@ export function HistoryView() {
                     <td className="px-6 py-4 text-right">
                        <Link 
                         to={`/incidents/${incident.id}`} 
-                        className="p-1 px-3 bg-slate-900 border border-slate-800 rounded group-hover:border-slate-700 text-xs font-bold text-slate-400 hover:text-white transition-all inline-flex items-center gap-2"
+                        className="p-1 px-3 bg-card border border-border rounded group-hover:border-muted text-xs font-bold text-muted-foreground hover:text-foreground transition-all inline-flex items-center gap-2"
                         onClick={(e) => e.stopPropagation()}
                        >
                          Manage <ExternalLink className="w-3 h-3" />
@@ -299,38 +299,38 @@ export function HistoryView() {
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="bg-slate-900/30 overflow-hidden"
+                        className="bg-muted/30 overflow-hidden"
                       >
                         <td colSpan={8} className="p-0 overflow-hidden">
-                          <div className="p-8 border-l-2 border-blue-500/50 m-4 ml-14 bg-slate-900/50 rounded-r-xl border border-slate-800 shadow-inner">
+                          <div className="p-8 border-l-2 border-primary/50 m-4 ml-14 bg-card/50 rounded-r-xl border border-border shadow-inner">
                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                                 <div className="space-y-4">
-                                   <div className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-1">Issue Description</div>
-                                   <p className="text-sm text-slate-300 leading-relaxed font-sans italic border-l-2 border-slate-800 pl-4 py-1">
+                                   <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] mb-1">Issue Description</div>
+                                   <p className="text-sm text-foreground/90 leading-relaxed font-sans italic border-l-2 border-border pl-4 py-1">
                                      "{incident.shortDescription}"
                                    </p>
                                 </div>
                                 <div className="space-y-4 text-xs">
-                                   <div className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-1">Impacted Infrastructure</div>
+                                   <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] mb-1">Impacted Infrastructure</div>
                                    <div className="flex flex-wrap gap-2">
                                       {['US-East-1', 'VPC-Peering', 'K8s-Prod-01'].map(tag => (
-                                        <span key={tag} className="px-2 py-1 bg-slate-800 border border-slate-700 rounded text-slate-300 font-mono uppercase tracking-tighter">
+                                        <span key={tag} className="px-2 py-1 bg-muted border border-muted rounded text-foreground/90 font-mono uppercase tracking-tighter">
                                           {tag}
                                         </span>
                                       ))}
                                    </div>
                                 </div>
                                 <div className="space-y-4">
-                                   <div className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-1">Operational State</div>
+                                   <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] mb-1">Operational State</div>
                                    <div className="space-y-2">
                                       <div className="flex justify-between items-center text-xs">
-                                         <span className="text-slate-500">Log Ingestion</span>
+                                         <span className="text-muted-foreground">Log Ingestion</span>
                                          <span className="text-green-500 uppercase font-bold">Operational</span>
                                       </div>
-                                      <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
+                                      <div className="w-full h-1 bg-muted rounded-full overflow-hidden">
                                          <div className="w-full h-full bg-green-500/50" />
                                       </div>
-                                      <Link to={`/incidents/${incident.id}`} className="mt-4 inline-flex items-center gap-2 text-xs font-bold text-blue-500 hover:text-blue-400 group/link">
+                                      <Link to={`/incidents/${incident.id}`} className="mt-4 inline-flex items-center gap-2 text-xs font-bold text-primary hover:text-primary group/link">
                                         Open Detailed Analysis View
                                         <ArrowRight className="w-3 h-3 transition-transform group-hover/link:translate-x-1" />
                                       </Link>
@@ -349,24 +349,24 @@ export function HistoryView() {
         </div>
 
         {/* Pagination */}
-        <div className="p-4 border-t border-slate-800 bg-slate-900/40 flex items-center justify-between">
-           <div className="text-[10px] text-slate-500 font-mono uppercase">
+        <div className="p-4 border-t border-border bg-card/40 flex items-center justify-between">
+           <div className="text-[10px] text-muted-foreground font-mono uppercase">
               Page {currentPage} of {Math.max(1, totalPages)} | Showing {paginatedIncidents.length} of {filteredIncidents.length} Records
            </div>
            <div className="flex gap-2">
               <button 
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="w-8 h-8 rounded border border-slate-800 bg-slate-900 flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-800 transition-colors"
+                className="w-8 h-8 rounded border border-border bg-card flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed hover:bg-muted transition-colors"
               >
-                 <ChevronDown className="w-4 h-4 text-slate-400 rotate-90" />
+                 <ChevronDown className="w-4 h-4 text-muted-foreground rotate-90" />
               </button>
               <button 
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages || totalPages === 0}
-                className="w-8 h-8 rounded border border-slate-800 bg-slate-900 flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-800 transition-colors"
+                className="w-8 h-8 rounded border border-border bg-card flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed hover:bg-muted transition-colors"
               >
-                 <ChevronDown className="w-4 h-4 text-slate-400 -rotate-90" />
+                 <ChevronDown className="w-4 h-4 text-muted-foreground -rotate-90" />
               </button>
            </div>
         </div>
@@ -377,21 +377,21 @@ export function HistoryView() {
 
 function SummaryCard({ label, value, icon: Icon, color, badge }: any) {
   return (
-    <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl relative overflow-hidden group hover:border-slate-700 transition-all shadow-lg hover:shadow-blue-500/5">
+    <div className="bg-card border border-border p-6 rounded-xl relative overflow-hidden group hover:border-muted transition-all shadow-lg hover:shadow-blue-500/5">
       <div className="absolute top-0 right-0 p-3">
         <Icon className={cn("w-12 h-12 opacity-[0.03] group-hover:opacity-10 transition-opacity", color)} />
       </div>
       <div className="relative z-10">
         <div className="flex justify-between items-start mb-3">
-           <div className={cn("p-2 rounded-lg bg-slate-950 border border-slate-800", color)}>
+           <div className={cn("p-2 rounded-lg bg-background border border-border", color)}>
              <Icon className="w-4 h-4" />
            </div>
-           <span className={cn("text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border border-slate-800/50 bg-slate-950", color)}>
+           <span className={cn("text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border border-border/50 bg-background", color)}>
              {badge}
            </span>
         </div>
-        <h3 className="text-2xl font-black text-white tracking-tighter">{value}</h3>
-        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">{label}</p>
+        <h3 className="text-2xl font-black text-foreground tracking-tighter">{value}</h3>
+        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">{label}</p>
       </div>
     </div>
   );
