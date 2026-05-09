@@ -247,7 +247,7 @@ git add -A && git commit -m "what you did" && git push
 | Risky change (refactor, swap a library) | Branch always |
 | Fixing a typo / tweaking a prompt | Straight to `main` |
 
-For a 4-hour hackathon with a small team, branches add friction. Use them only when needed.
+For a hackathon with a small team, branches add friction. Use them only when needed.
 
 ### Branch workflow (when you do need one)
 
