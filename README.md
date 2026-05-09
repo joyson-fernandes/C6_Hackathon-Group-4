@@ -235,6 +235,24 @@ Tests live under `tests/` and do not make any LLM calls.
 
 ---
 
+## Evaluation Cases
+
+Run scenario-level evals:
+
+```bash
+python evals/run_evals.py
+```
+
+The eval suite validates the full incident workflow across payment API errors, disk full incidents, website slowness, and healthy service logs. Each eval checks severity classification/routing, RAG usage and sources, validator status, and final report generation.
+
+This complements unit tests:
+
+```bash
+pytest -q
+```
+
+---
+
 ## Demo logs
 
 Drop one of these into the UI's uploader (or `curl` against `/api/analyze`):
