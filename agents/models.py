@@ -7,7 +7,7 @@ validation. We use it here for two reasons:
      in as JSON. The LLM is *forced* to produce data that matches the schema,
      which is much more reliable than parsing free-form text.
 """
-from typing import Literal, Optional, TypedDict
+from typing import Literal, TypedDict
 from pydantic import BaseModel, Field
 
 # Severity is a fixed set of strings - Literal restricts the allowed values.
@@ -25,7 +25,7 @@ class Incident(BaseModel):
     severity: Severity
     summary: str = Field(description="one-line human summary")
     evidence: str = Field(description="raw log lines or stack trace excerpt")
-    first_seen: Optional[str] = None
+    first_seen: str | None = None
 
 
 class Fix(BaseModel):
@@ -34,7 +34,7 @@ class Fix(BaseModel):
     rationale: str = Field(description="why this fix addresses the root cause")
     steps: list[str] = Field(description="ordered remediation steps")
     risk: Literal["low", "medium", "high"]
-    runbook_ref: Optional[str] = None
+    runbook_ref: str | None = None
 
 
 class Checklist(BaseModel):
@@ -74,7 +74,7 @@ class RagCompliance(TypedDict):
     status: str       # "ok" | "warn" | "fail"
     reason: str       # human-readable explanation
     rag_confidence: RagConfidence
-    runbook_ref: Optional[str]
+    runbook_ref: str | None
 
 
 class State(TypedDict, total=False):
@@ -88,8 +88,16 @@ class State(TypedDict, total=False):
     incidents: list[Incident]                  # set by classifier
     remediations: dict[str, Fix]               # set by remediation node
     cookbook: Checklist                        # set by cookbook node
-    slack_thread_ts: Optional[str]                # set by slack node
+    slack_thread_ts: str | None                # set by slack node
+    slack_status: str                          # "sent_mock" | "prepared_mock" | "skipped"
+    slack_channel: str | None
+    slack_message_id: str | None
+    slack_message_preview: str
+    jira_status: str                           # "created_mock" | "skipped"
     jira_keys: list[str]                       # set by jira node
+    jira_priority: str | None
+    jira_summary: str
+    jira_description_preview: str
     report_md: str                             # set by final report node
 
     # --- RAG payload (populated by remediation node) ---

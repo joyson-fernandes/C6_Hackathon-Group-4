@@ -135,8 +135,16 @@ export interface AnalysisReport {
   human_approval_status: HumanApprovalStatus | null;
   execution_path: string[];
 
+  slack_status?: 'sent_mock' | 'prepared_mock' | 'skipped' | string;
+  slack_channel?: string | null;
+  slack_message_id?: string | null;
   slack_thread_ts: string | null;
+  slack_message_preview?: string;
+  jira_status?: 'created_mock' | 'skipped' | string;
   jira_keys: string[];
+  jira_priority?: string | null;
+  jira_summary?: string;
+  jira_description_preview?: string;
 }
 
 export interface AnalysisRun {
