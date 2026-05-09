@@ -42,13 +42,14 @@ env:
   CORS_ORIGINS: "https://opsgpt.joysontech.com"
   OPENROUTER_BASE_URL: "https://openrouter.ai/api/v1"
 
-# OpenRouter API key is supplied per-user from the Settings UI (sent as the
-# X-OpenRouter-API-Key header on each /api/analyze request). No server-side
-# secret is required to deploy. To pre-seed a fallback key for the cluster,
-# set `existingSecret` to the name of a K8s Secret that contains
-# OPENROUTER_API_KEY (e.g. via ExternalSecret) and the Deployment will
-# envFrom it.
-existingSecret: ""
+# OpenRouter API key is supplied per-user from the Settings UI. The chart
+# still envFrom's a K8s Secret called `c6-hackathon-secrets` for any
+# server-side defaults (LANGSMITH_TRACING + LANGSMITH_API_KEY for the
+# tracing dashboard, etc). Create the Secret out-of-band:
+#   kubectl create secret generic c6-hackathon-secrets -n c6-hackathon \
+#     --from-literal=LANGSMITH_TRACING=true \
+#     --from-literal=LANGSMITH_API_KEY=lsv2_...
+existingSecret: c6-hackathon-secrets
 
 externalSecret:
   enabled: false

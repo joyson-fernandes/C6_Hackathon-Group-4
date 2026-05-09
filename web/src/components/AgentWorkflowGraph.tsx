@@ -75,27 +75,19 @@ export function AgentWorkflowGraph({ nodes, report }: AgentWorkflowGraphProps) {
         </div>
       </div>
 
-      <AnimatePresence>
+      <AnimatePresence initial={false}>
         {expandedNode && (
           <motion.div
-            key="backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start md:items-center justify-center p-4 overflow-y-auto"
-            onClick={() => setExpandedNodeId(null)}
+            key="panel"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.25 }}
+            className="overflow-hidden"
           >
-            <motion.div
-              key="modal"
-              initial={{ opacity: 0, y: 20, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.97 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-              className="bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-3xl my-8 overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
+            <div className="bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl mt-4 overflow-hidden">
               <ModalHeader node={expandedNode} onClose={() => setExpandedNodeId(null)} />
-              <div className="p-6 max-h-[70vh] overflow-y-auto space-y-5">
+              <div className="p-6 max-h-[60vh] overflow-y-auto space-y-5">
                 <p className="text-sm text-slate-300 leading-relaxed">{expandedNode.description}</p>
                 {expandedNode.output && (
                   <p className="text-xs font-mono text-slate-400 italic border-l-2 border-slate-800 pl-3">
@@ -116,7 +108,7 @@ export function AgentWorkflowGraph({ nodes, report }: AgentWorkflowGraphProps) {
                   </div>
                 )}
               </div>
-            </motion.div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
