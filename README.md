@@ -251,6 +251,32 @@ pytest -q
 
 Tests live under `tests/` and do not make any LLM calls.
 
+### Convenience targets (`Makefile`)
+
+```bash
+make setup            # install Python + frontend deps
+make test             # run the 22-test pytest suite
+make eval             # run scenario evals against Sample_logs/
+make smoke            # confirm the LangGraph compiles cleanly
+make run              # start the FastAPI backend at :8000
+make frontend         # start the React dev server (separate terminal)
+```
+
+### Sample outputs
+
+`sample_outputs/` contains the literal Markdown reports produced by running
+the full pipeline against each log fixture in `Sample_logs/`:
+
+| Sample log | Severity | Validator | Quality score | RAG confidence |
+|---|---|---|---|---|
+| [payment_errors](sample_outputs/payment_errors_report.md) | critical | approved | 9/10 | high |
+| [disk_full](sample_outputs/disk_full_report.md) | critical | approved | 7/10 | high |
+| [website_slow](sample_outputs/website_slow_report.md) | high | approved | 8/10 | high |
+| [login_failures](sample_outputs/login_failures_report.md) | high | approved | 8/10 | high |
+
+See [sample_outputs/README.md](sample_outputs/README.md) for regeneration
+instructions.
+
 ---
 
 ## Evaluation Cases
