@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   repository: registry.joysontech.com/library/c6-hackathon
-  tag: "0.1.0-20260509-819190d"
+  tag: "0.1.0-20260509-13235b3"
   pullPolicy: Always
 
 imagePullSecrets:
