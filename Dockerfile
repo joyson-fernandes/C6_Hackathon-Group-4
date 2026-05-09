@@ -23,13 +23,16 @@ RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 FROM python:${PYTHON_VERSION}-slim
 WORKDIR /app
 
-# The base image ships pre-installed jaraco.context 5.3.0 and wheel 0.45.1
-# which Trivy flags (CVE-2026-23949, CVE-2026-24049). Upgrade them in place
-# before copying our app deps so the vulnerable versions don't survive.
-RUN pip install --no-cache-dir --upgrade 'jaraco.context>=6.1.0' 'wheel>=0.46.2'
-
 # Bring installed Python packages from the deps layer (smaller image, no pip).
 COPY --from=deps /install /usr/local
+
+# The base image AND the deps layer both ship pre-installed jaraco.context
+# 5.3.0 + wheel 0.45.1 which Trivy flags (CVE-2026-23949, CVE-2026-24049).
+# Upgrade after the COPY so the patched versions are the ones that stick.
+# Remove the old dist-info dirs so Trivy doesn't see both versions side by side.
+RUN rm -rf /usr/local/lib/python*/site-packages/jaraco.context-5.* \
+           /usr/local/lib/python*/site-packages/wheel-0.45.* \
+    && pip install --no-cache-dir --upgrade 'jaraco.context>=6.1.0' 'wheel>=0.46.2'
 
 COPY agents/ ./agents/
 COPY app/ ./app/
