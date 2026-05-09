@@ -25,19 +25,63 @@ Upload ops logs → 5 LangGraph agents analyze them → structured incidents, re
 You upload a log file. The system:
 
 1. **Classifies** every distinct incident (service, error type, severity, evidence).
-2. **Recommends a fix** for each one with rationale, ordered steps, and risk level.
-3. **Synthesizes a runbook** — one consolidated checklist across all incidents.
-4. **Posts to Slack** as a threaded message *(stub — to be implemented by team)*.
-5. **Files JIRA tickets** for `high` / `critical` severity only *(stub — to be implemented by team)*.
-6. **Renders a final report** in Markdown.
+2. **Routes by severity** — critical/high go through deep analysis + RAG, medium goes through RAG, low through standard remediation, info gets a summary only.
+3. **Recommends a fix** for each incident with rationale, ordered steps, and risk level (RAG-grounded against the runbook KB).
+4. **Validates the remediation** with a critic agent that returns `approved`, `needs_revision`, or `escalate`. Weak remediations loop back for up to **2 retries**; critical incidents requiring escalation route through a human approval gate.
+5. **Synthesizes a runbook** — one consolidated checklist across all incidents.
+6. **Posts to Slack** as a threaded message *(stub — safe in demo mode)*.
+7. **Files JIRA tickets** for `high` / `critical` severity only *(stub — safe in demo mode)*.
+8. **Renders a final report** in Markdown.
 
-All orchestrated as a LangGraph DAG. UI in Streamlit.
+All orchestrated as a LangGraph DAG with conditional routing. UI in Streamlit.
+
+### Key features
+
+- Multi-agent LangGraph workflow with **conditional routing**
+- **Severity-based** branching (critical / high / medium / low / info)
+- **RAG-grounded remediation** over the runbooks knowledge base (BM25)
+- **Validator / critic** agent with structured verdict
+- **Retry loop** for weak remediation (max 2)
+- **Human approval / escalation** path for critical incidents
+- **Mermaid architecture diagram** in this README
+- Lightweight pytest suite for the router and validator
 
 ---
 
 ## Architecture
 
+```mermaid
+flowchart TD
+    A[Upload Ops Logs] --> B[Log Classifier Agent]
+    B --> C{Severity Router}
+    C -->|Critical / High| D[Deep Analysis Agent]
+    C -->|Medium| E[RAG Runbook Retriever]
+    C -->|Low| F[Standard Remediation Agent]
+    C -->|Info| G[Summary Report Builder]
+    D --> E
+    E --> H[Remediation Agent]
+    F --> H
+    H --> I[Validator / Critic Agent]
+    I -->|Needs Revision and Retry &lt; 2| H
+    I -->|Approved| J[Cookbook Synthesizer Agent]
+    I -->|Escalation Required| K[Human Approval Node]
+    J --> K
+    K -->|Approved or Mock Approval| L[Gmail or Slack Notification Tool]
+    K -->|Approved or Mock Approval| M[JIRA Ticket Tool]
+    K -->|Rejected or Approval Pending| N[Final Incident Report]
+    L --> N
+    M --> N
+    G --> N
+    N --> O[Streamlit UI Output]
 ```
+
+The workflow uses LangGraph conditional routing. Critical and high-severity
+incidents are routed through deep analysis, RAG-backed remediation, validator
+review, and human approval before external notifications or ticket creation.
+Medium incidents use RAG and standard remediation, while low/info events
+follow a lightweight summary path. The validator agent creates a feedback
+loop by sending weak remediation outputs back for revision (capped at 2
+retries) before final reporting.
         ┌─────────────────┐
         │   upload_logs   │  Streamlit file upload → raw text
         └────────┬────────┘
@@ -81,13 +125,20 @@ C6_Hackathon-Group-4/
 │   ├── config.py             # loads .env, picks the model
 │   ├── models.py             # Pydantic: Incident, Fix, Checklist, State
 │   ├── classifier.py         # raw logs → list[Incident]
-│   ├── remediation.py        # incident → Fix (root cause + steps)
+│   ├── severity_router.py    # routing decision (critical/high/medium/low/info)
+│   ├── rag.py                # BM25 retrieval over runbooks/
+│   ├── remediation.py        # incident → Fix (RAG-grounded)
+│   ├── validator.py          # critic agent: approved / needs_revision / escalate
 │   ├── cookbook.py           # all incidents → consolidated Checklist
-│   ├── notifier.py           # Slack + JIRA stubs (to be implemented)
-│   └── graph.py              # LangGraph StateGraph wiring all nodes
+│   ├── notifier.py           # Slack + JIRA stubs (safe in demo mode)
+│   └── graph.py              # LangGraph StateGraph + conditional edges
 │
 ├── app/
 │   └── main.py               # Streamlit UI
+│
+├── tests/                    # pytest tests for the router + validator
+│   ├── test_severity_router.py
+│   └── test_validator.py
 │
 └── Sample_logs/              # pre-canned demo logs anyone can read
     ├── website_slow.log      # web app slowing down, DB query timeouts, 500s on checkout
@@ -163,6 +214,17 @@ python -c "from agents.graph import build_graph; g = build_graph(); print(g.get_
 ```
 
 Prints the agent DAG as Mermaid — handy for the demo.
+
+### Running tests
+
+The severity router and validator are pure-Python and tested with `pytest`:
+
+```bash
+pip install pytest
+pytest -q
+```
+
+Tests live under `tests/` and do not make any LLM calls.
 
 ---
 

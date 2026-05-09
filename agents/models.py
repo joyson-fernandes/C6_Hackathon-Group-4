@@ -98,3 +98,32 @@ class State(TypedDict, total=False):
     rag_sources: list[str]                     # unique source filenames
     rag_confidence: RagConfidence              # high / medium / low / none
     rag_compliance: list[RagCompliance]        # severity-policy verdict per incident
+
+    # --- Severity routing fields (set by severity_router) ---------------
+    # `severity` here is the AGGREGATE severity for the whole batch of logs
+    # (per-incident severity still lives on each Incident). The router
+    # normalizes the legacy 4-level scale to a canonical 5-level string
+    # (critical / high / medium / low / info).
+    severity: str
+    incident_type: str
+    routing_path: str
+    routing_reason: str
+    requires_deep_analysis: bool
+    requires_rag: bool
+    requires_human_approval: bool
+    requires_ticket: bool
+    requires_notification: bool
+    rag_snippet_count: int
+
+    # --- Validator / critic fields (set by validator agent) -------------
+    validator_status: str             # "approved" | "needs_revision" | "escalate"
+    quality_score: int                # 0-10
+    issues_found: list[str]
+    revision_instruction: str
+    escalation_required: bool
+    validation_reason: str
+    retry_count: int
+
+    # --- Human approval / execution trace -------------------------------
+    human_approval_status: str        # "required" | "approved" | "skipped"
+    execution_path: list[str]         # ordered list of node names visited

@@ -53,34 +53,98 @@ if show_graph:
 if st.button("Analyze", type="primary", disabled=not logs_text):
     graph = build_graph()
     with st.status("Running agents...", expanded=True) as status:
-        st.write("classifier -> remediation (RAG-grounded) -> cookbook -> slack/jira -> report")
+        st.write(
+            "classify -> severity_router -> (deep_analysis | rag | remediate-with-RAG | summary) "
+            "-> validator -> (retry | cookbook | escalate) -> human_approval -> slack/jira -> report"
+        )
         result = graph.invoke({"raw_logs": logs_text})
         status.update(label="Done", state="complete")
 
-    tab_inc, tab_rem, tab_rag, tab_cb, tab_notif = st.tabs(
-        ["Incidents", "Remediations", "RAG", "Cookbook", "Notifications"]
+    # --- Top-level workflow summary (severity routing + validator) -------
+    severity = result.get("severity", "n/a")
+    sev_badge_color = {
+        "critical": ":red", "high": ":orange", "medium": ":violet",
+        "low": ":blue", "info": ":gray",
+    }.get(severity, ":gray")
+
+    st.subheader("Workflow Summary")
+    col_a, col_b, col_c = st.columns(3)
+    with col_a:
+        st.markdown(f"**Severity** {sev_badge_color}[`{severity}`]")
+        st.caption(f"Incident type: `{result.get('incident_type', 'n/a')}`")
+    with col_b:
+        st.markdown(f"**Validator** `{result.get('validator_status', 'n/a')}`")
+        st.caption(f"Quality score: {result.get('quality_score', 'n/a')}/10")
+    with col_c:
+        st.markdown(f"**Retries** `{result.get('retry_count', 0)}/2`")
+        st.caption(f"Human approval: {result.get('human_approval_status', 'n/a')}")
+
+    path = result.get("execution_path") or []
+    if path:
+        st.markdown("**Execution path:** " + " -> ".join(f"`{n}`" for n in path))
+
+    st.divider()
+
+    tab_inc, tab_route, tab_val, tab_rem, tab_rag, tab_cb, tab_notif = st.tabs(
+        ["Incidents", "Routing", "Validator", "Remediations", "RAG", "Cookbook", "Notifications"]
     )
 
     # Tab: Incidents
     with tab_inc:
-        for inc in result["incidents"]:
-            sev_color = {"critical": ":red", "high": ":orange", "warn": ":yellow", "info": ":blue"}[inc.severity]
+        for inc in result.get("incidents", []):
+            sev_color = {
+                "critical": ":red", "high": ":orange", "warn": ":yellow",
+                "medium": ":violet", "low": ":blue", "info": ":gray",
+            }.get(inc.severity, ":gray")
             st.markdown(f"**{inc.id}** {sev_color}[`{inc.severity}`] - `{inc.service}` - {inc.error_type}")
             st.caption(inc.summary)
             with st.expander("evidence"):
                 st.code(inc.evidence)
 
-    # Tab: Remediations
+    # Tab: Routing
+    with tab_route:
+        st.markdown("### Severity Routing")
+        st.markdown(f"- **Detected severity:** `{result.get('severity', 'n/a')}`")
+        st.markdown(f"- **Incident type:** `{result.get('incident_type', 'n/a')}`")
+        st.markdown(f"- **Routing path:** `{result.get('routing_path', 'n/a')}`")
+        st.markdown(f"- **Routing reason:** {result.get('routing_reason', 'n/a')}")
+        st.markdown("#### Routing flags")
+        for k, v in {
+            "Requires deep analysis": result.get("requires_deep_analysis", False),
+            "Requires RAG": result.get("requires_rag", False),
+            "Requires human approval": result.get("requires_human_approval", False),
+            "Requires ticket": result.get("requires_ticket", False),
+            "Requires notification": result.get("requires_notification", False),
+        }.items():
+            st.markdown(f"- {k}: {'yes' if v else 'no'}")
+
+    # Tab: Validator
+    with tab_val:
+        status_v = result.get("validator_status", "n/a")
+        st.markdown(f"### Validator status: `{status_v}`")
+        st.markdown(f"- **Quality score:** {result.get('quality_score', 'n/a')}/10")
+        st.markdown(f"- **Retry count:** {result.get('retry_count', 0)} (max 2)")
+        st.markdown(f"- **Requires human approval:** {result.get('requires_human_approval', False)}")
+        st.markdown(f"- **Escalation required:** {result.get('escalation_required', False)}")
+        st.markdown(f"- **Reason:** {result.get('validation_reason', 'n/a')}")
+        if rev := result.get("revision_instruction"):
+            st.markdown(f"- **Revision instruction:** {rev}")
+        issues = result.get("issues_found") or []
+        if issues:
+            st.markdown("#### Issues found")
+            for it in issues:
+                st.markdown(f"- {it}")
+        else:
+            st.success("No validation issues found.")
+
+    # Tab: Remediations (with RAG compliance badges)
     with tab_rem:
-        compliance_by_id = {
-            c["incident_id"]: c for c in result.get("rag_compliance", [])
-        }
-        status_emoji = {"ok": "✅", "warn": "⚠️", "fail": "❌"}
-        for fid, fix in result["remediations"].items():
+        compliance_by_id = {c["incident_id"]: c for c in result.get("rag_compliance", [])}
+        status_emoji = {"ok": "OK", "warn": "WARN", "fail": "FAIL"}
+        for fid, fix in (result.get("remediations") or {}).items():
             comp = compliance_by_id.get(fid)
             badge = (
-                f"{status_emoji.get(comp['status'], '')} RAG: {comp['status']} "
-                f"({comp['requirement']})"
+                f"[{status_emoji.get(comp['status'], '')}] RAG: {comp['status']} ({comp['requirement']})"
                 if comp else ""
             )
             st.subheader(f"{fid} - risk: {fix.risk}  {badge}")
@@ -95,7 +159,7 @@ if st.button("Analyze", type="primary", disabled=not logs_text):
             for n, s in enumerate(fix.steps, 1):
                 st.write(f"{n}. {s}")
 
-    # Tab: RAG (the structured payload)
+    # Tab: RAG (structured payload)
     with tab_rag:
         confidence = result.get("rag_confidence", "none")
         sources = result.get("rag_sources", [])
@@ -126,9 +190,9 @@ if st.button("Analyze", type="primary", disabled=not logs_text):
             cc[2].metric("Fail", n_fail)
 
             for c in compliance:
-                emoji = {"ok": "✅", "warn": "⚠️", "fail": "❌"}[c["status"]]
+                emoji = {"ok": "OK", "warn": "WARN", "fail": "FAIL"}[c["status"]]
                 st.markdown(
-                    f"{emoji} **{c['incident_id']}** "
+                    f"[{emoji}] **{c['incident_id']}** "
                     f"`{c['severity']}` -> requirement: `{c['requirement']}` -> "
                     f"status: `{c['status']}`"
                 )
@@ -166,7 +230,8 @@ if st.button("Analyze", type="primary", disabled=not logs_text):
     with tab_notif:
         st.write(f"Slack thread: `{result.get('slack_thread_ts')}`")
         st.write(f"JIRA tickets: {result.get('jira_keys', [])}")
+        st.caption("Slack/JIRA stay mocked unless real credentials are configured.")
 
     # Final markdown report.
     st.divider()
-    st.markdown(result["report_md"])
+    st.markdown(result.get("report_md", ""))
