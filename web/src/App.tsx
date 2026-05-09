@@ -7,6 +7,8 @@ import { WorkflowView } from './pages/WorkflowView';
 import { IntegrationsView } from './pages/IntegrationsView';
 import { HistoryView } from './pages/HistoryView';
 import { SettingsView } from './pages/SettingsView';
+import { CommandPalette } from './components/CommandPalette';
+import { Toaster } from './components/ui/Toaster';
 
 export default function App() {
   return (
@@ -24,6 +26,8 @@ export default function App() {
           </Route>
         </Routes>
       </AnimatePresence>
+      <CommandPalette />
+      <Toaster />
     </Router>
   );
 }
