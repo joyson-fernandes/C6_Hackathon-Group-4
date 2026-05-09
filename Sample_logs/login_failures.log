@@ -1,0 +1,12 @@
+2026-05-09 14:02:11 INFO  auth    User alice@example.com logged in successfully
+2026-05-09 14:03:05 INFO  auth    User bob@example.com logged in successfully
+2026-05-09 14:05:22 WARN  auth    Failed login attempt for user admin from IP 203.0.113.45
+2026-05-09 14:05:23 WARN  auth    Failed login attempt for user admin from IP 203.0.113.45
+2026-05-09 14:05:24 WARN  auth    Failed login attempt for user admin from IP 203.0.113.45
+2026-05-09 14:05:25 WARN  auth    Failed login attempt for user admin from IP 203.0.113.45
+2026-05-09 14:05:26 WARN  auth    Failed login attempt for user admin from IP 203.0.113.45
+2026-05-09 14:05:27 ERROR auth    50 failed login attempts from IP 203.0.113.45 in last 60 seconds - possible brute force
+2026-05-09 14:06:01 ERROR auth    Account admin locked after too many failed attempts
+2026-05-09 14:08:14 ERROR auth    Password reset email failed to send: SMTP connection refused
+2026-05-09 14:08:15 ERROR auth    Password reset email failed to send: SMTP connection refused
+2026-05-09 14:09:00 WARN  auth    Session token expired for user charlie@example.com - re-authentication required
