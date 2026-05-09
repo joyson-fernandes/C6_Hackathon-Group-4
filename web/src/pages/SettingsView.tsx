@@ -7,7 +7,7 @@ import { useAnalysisStore } from '../store/AnalysisStore';
 import { apiService } from '../services/apiService';
 import { clearApiKey, getApiKey, maskApiKey, setApiKey } from '../utils/apiKey';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL || window.location.origin;
 
 export function SettingsView() {
   const { runs, clearRuns } = useAnalysisStore();

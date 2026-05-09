@@ -1,7 +1,10 @@
 import { AnalysisReport } from '../types';
 import { getApiKey } from '../utils/apiKey';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// In production, the FastAPI server serves the React bundle from the same
+// origin — so a relative URL just works. Local dev sets VITE_API_URL to
+// http://localhost:8000 explicitly via web/.env.
+const API_URL = import.meta.env.VITE_API_URL ?? '';
 
 export interface HealthResponse {
   status: boolean;
