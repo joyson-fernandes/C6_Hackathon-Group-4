@@ -1,21 +1,21 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Download, 
-  Search, 
-  ExternalLink, 
-  ChevronDown, 
-  ChevronUp, 
-  Filter, 
-  AlertCircle, 
-  Zap, 
-  CheckCircle2, 
+import {
+  Download,
+  Search,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
+  AlertCircle,
+  Zap,
+  CheckCircle2,
   BellOff,
-  Activity,
-  ArrowRight
+  Trash2,
+  ArrowRight,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useIncidents } from '../hooks/useIncidents';
+import { useAnalysisStore } from '../store/AnalysisStore';
 import { Card } from '../components/ui/Card';
 import { SeverityBadge } from '../components/ui/Badge';
 import { cn } from '../utils/cn';
@@ -23,12 +23,30 @@ import { format } from 'date-fns';
 
 export function HistoryView() {
   const { incidents, loading } = useIncidents();
+  const { clearRuns, runs } = useAnalysisStore();
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [severityFilter, setSeverityFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [currentPage, setCurrentPage] = useState(1);
+  const [confirmingClear, setConfirmingClear] = useState(false);
   const itemsPerPage = 8;
+
+  const handleClearHistory = () => {
+    if (!confirmingClear) {
+      setConfirmingClear(true);
+      // Auto-cancel the confirm prompt after 4 seconds.
+      setTimeout(() => setConfirmingClear(false), 4000);
+      return;
+    }
+    clearRuns();
+    setExpandedRows({});
+    setSearchQuery('');
+    setSeverityFilter('All');
+    setStatusFilter('All');
+    setCurrentPage(1);
+    setConfirmingClear(false);
+  };
 
   const toggleRow = (id: string) => {
     setExpandedRows(prev => ({ ...prev, [id]: !prev[id] }));
@@ -86,6 +104,21 @@ export function HistoryView() {
         <div className="flex items-center gap-3">
           <button className="px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-md text-xs font-bold text-slate-300 flex items-center gap-2 transition-colors group">
             <Download className="w-4 h-4 group-hover:text-blue-500 transition-colors" /> Export Operations Audit
+          </button>
+          <button
+            onClick={handleClearHistory}
+            disabled={runs.length === 0}
+            className={cn(
+              'px-4 py-2 border rounded-md text-xs font-bold flex items-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed',
+              confirmingClear
+                ? 'bg-red-600 hover:bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/20'
+                : 'bg-slate-900 hover:bg-red-900/20 border-slate-800 hover:border-red-500/50 text-slate-300 hover:text-red-300'
+            )}
+          >
+            <Trash2 className="w-4 h-4" />
+            {confirmingClear
+              ? `Click again to clear ${runs.length} run${runs.length === 1 ? '' : 's'}`
+              : `Clear history${runs.length ? ` (${runs.length})` : ''}`}
           </button>
         </div>
       </div>
