@@ -42,12 +42,16 @@ env:
   CORS_ORIGINS: "https://opsgpt.joysontech.com"
   OPENROUTER_BASE_URL: "https://openrouter.ai/api/v1"
 
-# Vault-backed secret. ExternalSecret syncs `secret/c6-hackathon` from Vault
-# into a K8s Secret with this name. The Deployment uses envFrom: secretRef.
-existingSecret: c6-hackathon-secrets
+# OpenRouter API key is supplied per-user from the Settings UI (sent as the
+# X-OpenRouter-API-Key header on each /api/analyze request). No server-side
+# secret is required to deploy. To pre-seed a fallback key for the cluster,
+# set `existingSecret` to the name of a K8s Secret that contains
+# OPENROUTER_API_KEY (e.g. via ExternalSecret) and the Deployment will
+# envFrom it.
+existingSecret: ""
 
 externalSecret:
-  enabled: true
+  enabled: false
   vaultPath: c6-hackathon
   secretStoreName: vault
   secretStoreKind: ClusterSecretStore

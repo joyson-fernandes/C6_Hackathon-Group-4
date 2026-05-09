@@ -320,23 +320,19 @@ GitHub push → Self-hosted runner (10.0.1.40) → Harbor → values.yaml bump �
 
 Anything below is per-environment, not per-deploy.
 
-**1. Vault — store the default OpenRouter key.** The frontend Settings tab lets each teammate use their own key, but the cluster needs a fallback so the backend boots cleanly:
+**1. GitHub secrets** on this repo:
+- `HARBOR_USERNAME` — Harbor account (CI uses it to push to `registry.joysontech.com`)
+- `HARBOR_PASSWORD` — Harbor password
 
+**2. DNS** — point `opsgpt.joysontech.com` at the cluster's Traefik external IP (same target as `outpost.joysontech.com` etc.). cert-manager handles the TLS cert via Let's Encrypt HTTP-01 once DNS resolves.
+
+**3. (optional) ArgoCD webhook** — add `https://argocd.joysontech.com/api/webhook` to this repo's GitHub webhook settings, content type `application/json`, for instant sync. Without it, ArgoCD polls every ~3 min.
+
+**4. (optional) Server-side OpenRouter fallback key.** Each teammate sets their own key via the Settings tab — that's the primary auth path and no Vault setup is needed. If you also want a cluster-wide default (so analyze works for users who haven't pasted a key yet), set `existingSecret` in `deploy/chart/values.yaml` to the name of a K8s Secret containing `OPENROUTER_API_KEY`. Easiest path: ExternalSecret + Vault:
 ```bash
-vault kv put secret/c6-hackathon \
-  OPENROUTER_API_KEY=sk-or-v1-... \
-  OPENROUTER_MODEL=anthropic/claude-sonnet-4.5
+vault kv put secret/c6-hackathon OPENROUTER_API_KEY=sk-or-v1-...
+# then in values.yaml: externalSecret.enabled=true, existingSecret=c6-hackathon-secrets
 ```
-
-The `ExternalSecret` in the chart pulls everything under `secret/c6-hackathon` into a K8s Secret called `c6-hackathon-secrets` and `envFrom`s it into the pod.
-
-**2. GitHub secrets** on this repo:
-- `HARBOR_USERNAME` — Harbor robot account
-- `HARBOR_PASSWORD` — robot password
-
-**3. DNS** — point `opsgpt.joysontech.com` at the cluster's Traefik external IP (same target as `outpost.joysontech.com` etc.). cert-manager handles the TLS cert via Let's Encrypt HTTP-01 once DNS resolves.
-
-**4. ArgoCD webhook** (optional, gives instant sync) — add `https://argocd.joysontech.com/api/webhook` to this repo's GitHub webhook settings, content type `application/json`. Without it, ArgoCD polls every ~3 min.
 
 ### CI flow
 
