@@ -37,20 +37,20 @@ jobs:
         working-directory: web
         run: npm run build
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+      - name: setup Python venv (system python3)
+        run: |
+          python3 --version
+          python3 -m venv .venv
+          .venv/bin/pip install --upgrade pip
 
       - name: install backend deps
-        run: pip install -r requirements.txt
+        run: .venv/bin/pip install -r requirements.txt pytest
 
       - name: smoke import
-        run: python -c "from app.server import app; print('server imports OK')"
+        run: .venv/bin/python -c "from app.server import app; print('server imports OK')"
 
       - name: pytest
-        run: |
-          pip install pytest
-          pytest -q
+        run: .venv/bin/pytest -q
 
   build-and-push:
     needs: test
