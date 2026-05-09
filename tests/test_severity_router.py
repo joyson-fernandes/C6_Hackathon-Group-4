@@ -73,6 +73,8 @@ def test_router_normalizes_legacy_warn_to_medium():
     assert out["routing_path"] == "medium_rag_remediation_validation"
     assert out["requires_rag"] is True
     assert out["requires_human_approval"] is False
+    assert out["requires_ticket"] is False
+    assert out["requires_notification"] is False
     assert route_by_severity(out) == "rag_retriever"
 
 
@@ -85,6 +87,8 @@ def test_router_low_routes_to_remediate():
     assert out["severity"] == "low"
     assert route_by_severity(out) == "remediate"
     assert out["requires_human_approval"] is False
+    assert out["requires_ticket"] is False
+    assert out["requires_notification"] is False
 
 
 def test_router_info_routes_to_summary():

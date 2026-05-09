@@ -159,8 +159,8 @@ def severity_router_node(state: State) -> dict:
             requires_deep_analysis=False,
             requires_rag=True,
             requires_human_approval=False,
-            requires_ticket=True,
-            requires_notification=True,
+            requires_ticket=False,
+            requires_notification=False,
         )
     elif severity == "low":
         routing_path = "low_standard_remediation_summary"
@@ -169,7 +169,7 @@ def severity_router_node(state: State) -> dict:
             requires_rag=False,
             requires_human_approval=False,
             requires_ticket=False,
-            requires_notification=True,
+            requires_notification=False,
         )
     else:  # info
         routing_path = "info_summary_only"

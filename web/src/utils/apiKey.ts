@@ -24,7 +24,7 @@ export function clearApiKey(): void {
   }
 }
 
-/** Show only the last 4 characters (e.g. "sk-…1a2b") for display. */
+/** Show only the last 4 characters of a configured key for display. */
 export function maskApiKey(key: string): string {
   if (!key) return '';
   if (key.length <= 4) return key;

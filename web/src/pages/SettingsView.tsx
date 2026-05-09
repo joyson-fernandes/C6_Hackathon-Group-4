@@ -88,7 +88,7 @@ export function SettingsView() {
                   type="password"
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
-                  placeholder="sk-or-v1-…"
+                  placeholder="Paste your OpenRouter API key"
                   className="flex-1 bg-slate-900 border border-slate-800 px-3 py-2 text-xs text-white rounded font-mono outline-none focus:border-blue-500"
                   autoComplete="off"
                   spellCheck={false}

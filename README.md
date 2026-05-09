@@ -119,7 +119,7 @@ C6_Hackathon-Group-4/
     ├── package.json
     ├── vite.config.ts
     ├── tsconfig.json
-    ├── .env                  # VITE_API_URL=http://localhost:8000
+    ├── .env.example          # copy to .env; VITE_API_URL=http://localhost:8000
     └── src/
         ├── App.tsx
         ├── main.tsx
@@ -183,7 +183,8 @@ cp .env.example .env
 ```bash
 cd web
 npm install
-# .env already points at http://localhost:8000 — edit if your backend runs elsewhere
+cp .env.example .env
+# edit .env if your backend runs somewhere other than http://localhost:8000
 ```
 
 ---
@@ -273,6 +274,11 @@ State flow: `agents/models.py::State` is a TypedDict threaded through every node
 | `OPENROUTER_API_KEY` | LLM calls (required) |
 | `OPENROUTER_MODEL` | Default `anthropic/claude-sonnet-4.5`. Any OpenRouter model id works |
 | `OPENROUTER_BASE_URL` | Default `https://openrouter.ai/api/v1` |
+| `LANGSMITH_TRACING` | Optional LangSmith tracing toggle. Keep `false` locally unless configured |
+| `LANGSMITH_API_KEY` | Optional LangSmith API key. Leave empty to disable tracing |
+| `LANGSMITH_PROJECT` | Optional LangSmith project name |
+| `ENVIRONMENT` | Runtime label, e.g. `local` |
+| `LOG_LEVEL` | Logging level, e.g. `INFO` |
 | `CORS_ORIGINS` | Comma-separated allowlist for the FastAPI CORS middleware. Default covers `:3000` and `:5173` |
 | `SLACK_BOT_TOKEN` | When notifier is implemented |
 | `SLACK_CHANNEL` | When notifier is implemented |
@@ -284,7 +290,7 @@ State flow: `agents/models.py::State` is a TypedDict threaded through every node
 |---|---|
 | `VITE_API_URL` | Backend base URL. Default `http://localhost:8000` |
 
-**Never commit `.env`.** Already in `.gitignore`.
+**Never commit `.env`.** Root and frontend env files are ignored; commit only `.env.example` files.
 
 ---
 
@@ -330,7 +336,7 @@ Anything below is per-environment, not per-deploy.
 
 **4. (optional) Server-side OpenRouter fallback key.** Each teammate sets their own key via the Settings tab — that's the primary auth path and no Vault setup is needed. If you also want a cluster-wide default (so analyze works for users who haven't pasted a key yet), set `existingSecret` in `deploy/chart/values.yaml` to the name of a K8s Secret containing `OPENROUTER_API_KEY`. Easiest path: ExternalSecret + Vault:
 ```bash
-vault kv put secret/c6-hackathon OPENROUTER_API_KEY=sk-or-v1-...
+vault kv put secret/c6-hackathon OPENROUTER_API_KEY=replace-with-openrouter-key
 # then in values.yaml: externalSecret.enabled=true, existingSecret=c6-hackathon-secrets
 ```
 
@@ -359,7 +365,7 @@ To verify the production image before pushing:
 ```bash
 docker build -t c6-hackathon:local .
 docker run --rm -p 8000:8000 \
-  -e OPENROUTER_API_KEY=sk-or-v1-... \
+  -e OPENROUTER_API_KEY=replace-with-openrouter-key \
   c6-hackathon:local
 
 # Visit http://localhost:8000 — same code path as production.

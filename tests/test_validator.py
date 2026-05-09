@@ -76,6 +76,59 @@ def test_good_critical_remediation_is_approved():
     assert out["requires_human_approval"] is True
 
 
+def test_polished_critical_without_rag_evidence_needs_revision():
+    """Critical fixes cannot be approved unless runbook/RAG evidence is present."""
+    fix = _fix(
+        rationale=(
+            "Payment API is returning gateway errors after a dependency failure. "
+            "Page on-call SRE and escalate before production action."
+        ),
+        steps=[
+            "Page on-call SRE incident commander immediately",
+            "Check the payment provider status page",
+            "Confirm customer impact and error rate",
+            "Prepare rollback after approval",
+        ],
+        runbook_ref=None,
+    )
+    state = {
+        "severity": "critical",
+        "remediations": {"INC-001": fix},
+        "retry_count": 0,
+    }
+    out = validate_remediation(state)
+    assert out["validator_status"] == "needs_revision"
+    assert any("rag" in i.lower() or "runbook" in i.lower() for i in out["issues_found"])
+
+
+def test_critical_with_ok_rag_compliance_can_be_approved_without_runbook_ref():
+    fix = _fix(
+        rationale=(
+            "Payment API is returning gateway errors after a dependency failure. "
+            "Page on-call SRE and escalate before production action."
+        ),
+        steps=[
+            "Page on-call SRE incident commander immediately",
+            "Check the payment provider status page",
+            "Confirm customer impact and error rate",
+            "Prepare rollback after approval",
+        ],
+        runbook_ref=None,
+    )
+    state = {
+        "severity": "critical",
+        "remediations": {"INC-001": fix},
+        "rag_compliance": [
+            {
+                "incident_id": "INC-001",
+                "status": "ok",
+            }
+        ],
+    }
+    out = validate_remediation(state)
+    assert out["validator_status"] == "approved"
+
+
 # ---------------------------------------------------------------------------
 # Lower-severity behavior
 # ---------------------------------------------------------------------------

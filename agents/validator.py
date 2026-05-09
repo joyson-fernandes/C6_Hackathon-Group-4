@@ -79,8 +79,10 @@ def _evaluate_fix(fix: Any, severity: str) -> tuple[int, list[str]]:
         )
         deductions += 2
 
-    # 4. Runbook / RAG evidence: required for medium and above.
-    if severity in ("critical", "high", "medium") and not runbook_ref:
+    # 4. Runbook evidence is preferred for medium incidents. Critical/high
+    # evidence is checked with the full state below because RAG compliance can
+    # satisfy the requirement even if the LLM forgot runbook_ref.
+    if severity == "medium" and not runbook_ref:
         issues.append(
             f"{getattr(fix, 'incident_id', '?')}: missing runbook/RAG reference"
         )
@@ -105,6 +107,42 @@ def _evaluate_fix(fix: Any, severity: str) -> tuple[int, list[str]]:
         deductions += 2
 
     return deductions, issues
+
+
+def _rag_evidence_issues(state: State, severity: str, fixes: dict[str, Any]) -> list[str]:
+    """Return evidence issues that should block severe remediations.
+
+    The remediation node writes rag_compliance entries when RAG runs. Tests and
+    older callers may only provide Fix.runbook_ref, so this accepts either a
+    concrete runbook reference or an "ok" compliance verdict as evidence.
+    """
+    if severity not in ("critical", "high"):
+        return []
+
+    compliance_by_id = {
+        entry.get("incident_id"): entry
+        for entry in (state.get("rag_compliance") or [])
+        if isinstance(entry, dict)
+    }
+
+    issues: list[str] = []
+    for incident_id, fix in fixes.items():
+        compliance = compliance_by_id.get(incident_id)
+        has_runbook_ref = bool(getattr(fix, "runbook_ref", None))
+        has_ok_compliance = bool(compliance and compliance.get("status") == "ok")
+
+        if not (has_runbook_ref or has_ok_compliance):
+            issues.append(
+                f"{incident_id}: critical/high remediation requires RAG or "
+                "runbook evidence before approval"
+            )
+        elif compliance and compliance.get("status") in ("warn", "fail"):
+            issues.append(
+                f"{incident_id}: RAG evidence check returned "
+                f"{compliance.get('status')}"
+            )
+
+    return issues
 
 
 def validate_remediation(state: State) -> dict:
@@ -143,6 +181,10 @@ def validate_remediation(state: State) -> dict:
         total_deductions += min(d, 6)
         all_issues.extend(iss)
 
+    evidence_issues = _rag_evidence_issues(state, severity, fixes)
+    if evidence_issues:
+        all_issues.extend(evidence_issues)
+
     # Average deduction so a clean batch of 5 fixes still scores well.
     avg_deduction = total_deductions / max(len(fixes), 1)
     quality_score = max(0, min(10, int(round(10 - avg_deduction))))
@@ -155,6 +197,11 @@ def validate_remediation(state: State) -> dict:
         status = "needs_revision"
     else:
         status = "approved"
+
+    # Severe incidents must be grounded before approval even when the rest of
+    # the fix looks polished.
+    if status == "approved" and evidence_issues:
+        status = "needs_revision"
 
     # Cap retries: if we've already revised twice, escalate instead of looping.
     if status == "needs_revision" and retry_count >= MAX_RETRIES:
