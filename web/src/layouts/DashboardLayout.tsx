@@ -39,6 +39,7 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/Sheet';
 import { TooltipProvider, Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/Tooltip';
 import { Sparkline } from '../components/ui/Sparkline';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 
 interface NavItem {
   icon: LucideIcon;
@@ -69,7 +70,9 @@ export function DashboardLayout() {
         <div className="flex-1 flex flex-col min-w-0">
           <Header onMobileMenuClick={() => setMobileOpen(true)} />
           <main className="flex-1 overflow-y-auto p-6 md:p-8 pb-20 md:pb-8">
-            <Outlet />
+            <ErrorBoundary>
+              <Outlet />
+            </ErrorBoundary>
           </main>
           <MobileBottomNav />
         </div>

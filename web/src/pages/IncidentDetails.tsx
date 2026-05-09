@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { ChevronLeft, Sparkles, Terminal, Upload, Activity, Inbox, Server, Zap, MessageSquare, Ticket } from 'lucide-react';
@@ -29,6 +29,7 @@ export function IncidentDetails() {
   });
   const [logs, setLogs] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const onFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -78,12 +79,23 @@ export function IncidentDetails() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <label className="cursor-pointer">
-              <input type="file" className="hidden" accept=".log,.txt,.json" onChange={onFileUpload} />
-              <Button variant="outline" size="sm" loading={isAnalyzing} disabled={isAnalyzing} asChild>
-                <span><Upload className="h-3.5 w-3.5" /> Re-run with new logs</span>
-              </Button>
-            </label>
+            <Button
+              variant="outline"
+              size="sm"
+              loading={isAnalyzing}
+              disabled={isAnalyzing}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload className="h-3.5 w-3.5" />
+              Re-run with new logs
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              accept=".log,.txt,.json"
+              onChange={onFileUpload}
+            />
           </div>
         </div>
         <div className="flex items-center gap-3 mt-2">
@@ -137,12 +149,10 @@ export function IncidentDetails() {
                     <Terminal className="h-4 w-4 text-muted-foreground" />
                     <SectionLabel>Log buffer</SectionLabel>
                   </div>
-                  <label className="cursor-pointer">
-                    <input type="file" className="hidden" accept=".log,.txt,.json" onChange={onFileUpload} />
-                    <Button variant="ghost" size="sm" asChild>
-                      <span><Upload className="h-3 w-3" /> Upload &amp; re-analyze</span>
-                    </Button>
-                  </label>
+                  <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()}>
+                    <Upload className="h-3 w-3" />
+                    Upload &amp; re-analyze
+                  </Button>
                 </div>
                 <pre className="p-4 max-h-[600px] overflow-auto font-mono text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap">
                   {logs || <span className="text-muted-foreground/60 italic">Log buffer empty. Upload a file to attach raw logs.</span>}

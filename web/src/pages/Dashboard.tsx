@@ -115,7 +115,7 @@ export function Dashboard() {
           sparkline={stats.spark.runs}
         />
         <Stat
-          label="Total Cost"
+          label="Total Token Cost"
           icon={DollarSign}
           iconClassName="text-[hsl(var(--sev-p4))]"
           value={stats.totalCost}
