@@ -10,7 +10,7 @@ A snapshot for the team: what works today, what doesn't, and what we could build
 | Agent | Status | Notes |
 |---|---|---|
 | Classifier | ✅ Working | Reads raw logs, returns typed `Incident` list with severity scoring |
-| Remediation | ✅ Working | Generates plain-English fix steps per incident |
+| Remediation | ✅ Working | Generates plain-English fix steps per incident, **RAG-grounded** with runbook citations |
 | Cookbook synthesizer | ✅ Working | Consolidated checklist across all incidents |
 | Slack notifier | ⚠️ Stub | Returns `"not-implemented"`. Needs Slack app + bot token |
 | JIRA ticketer | ⚠️ Stub | Returns `[]`. Needs Atlassian API token |
@@ -23,12 +23,13 @@ A snapshot for the team: what works today, what doesn't, and what we could build
 - ✅ Streamlit UI with file upload, log preview, tabbed results
 - ✅ Session state preserves uploads across Streamlit reruns
 - ✅ 4 sample logs in `Sample_logs/` covering web/auth/payments/disk scenarios
+- ✅ **RAG over 6 markdown runbooks via BM25** — remediation agent retrieves top-3 relevant snippets per incident and cites the source runbook
 - ✅ Public GitHub repo with branching workflow documented
 
 ### What we can demo right now
 1. Upload `payment_errors.log`
 2. Pipeline detects 4-5 incidents in ~20-40 seconds
-3. Per-incident remediation tabs with severity, root cause, ordered steps
+3. Per-incident remediation tabs with severity, root cause, ordered steps, **and a `Cited runbook` line showing which knowledge-base doc grounded the fix**
 4. Consolidated runbook checklist
 5. Markdown report ready to paste into a postmortem doc
 
@@ -47,12 +48,13 @@ What we have is "data flowing through specialized agents." Not the agentic-AI hy
 ### Notifier stubs
 Slack and JIRA both return placeholders. Pipeline runs end-to-end but downstream tools see nothing.
 
-### No memory / RAG
-Every analysis starts from zero. We don't:
-- Look up similar past incidents
-- Reference internal runbooks or wiki pages
+### No memory across runs
+Each analysis is stateless — we don't remember prior runs. We don't:
+- Look up similar past incidents from earlier sessions
 - Cross-reference CVE databases for security incidents
 - Cache fixes for recurring problems
+
+(Within-run RAG over runbooks is now done — see `agents/rag.py`.)
 
 ### Single log format assumption
 The classifier prompt is tuned for our 4 sample logs. Real-world logs (JSON-structured, multiline stack traces, custom formats) may need prompt tweaks.
@@ -80,14 +82,18 @@ A 6th agent reviews the cookbook and either approves it or asks the cookbook syn
 
 ### Tier 2: medium-impact, medium-effort (each ~30-60 min)
 
-**5. RAG over a runbook knowledge base** ⭐ unlocks real domain knowledge
-Index a folder of markdown runbooks with a vector store (Chroma, FAISS, or LangChain's `InMemoryVectorStore`). For each incident, retrieve the top-3 relevant runbook snippets and pass them to the remediation agent. Suddenly the agent knows about *your team's* tools and procedures, not just generic patterns.
+**5. RAG over a runbook knowledge base** ✅ DONE
+Implemented in `agents/rag.py` using BM25 keyword retrieval over markdown
+runbooks in `runbooks/`. The remediation agent now retrieves the top-3
+relevant snippets per incident and is prompted to cite them via `runbook_ref`.
 
-Possible knowledge base sources:
-- Your team's existing wiki / Notion / Confluence
-- A folder of `.md` files in this repo
-- Past postmortems
-- Public sources (CNCF runbooks, AWS Well-Architected docs)
+Current KB has 6 runbooks (database, disk, payments, auth, web perf, email).
+**To extend:** drop more `.md` files in `runbooks/` — they're auto-indexed at
+startup. Each `## Header` becomes a separately-retrievable chunk.
+
+**Future upgrade path:** swap BM25 for semantic embeddings when the KB grows
+past ~50 docs or queries miss matches due to vocabulary mismatch. Drop-in:
+replace `_build_index()` with a LangChain `VectorStore`.
 
 **6. Severity-conditional routing**
 LangGraph conditional edges → `critical` incidents go through a deeper analysis branch (extra LLM call, web search), `warn` skips it. Real orchestration, not just sequencing.
@@ -130,8 +136,8 @@ Each LLM call cost shown in the UI. Per-run total. Per-day burn rate.
 
 If there's time after that:
 
-4. **Tier 2 #5 (RAG)** — 45 min, lets us claim "domain-aware reasoning" with a real knowledge base
-5. **Tier 1 #3 (JIRA)** — 30 min, completes the integration story
+4. **Tier 1 #3 (JIRA)** — 30 min, completes the integration story
+5. **Tier 2 #8 (parallel remediation)** — 30 min, makes the demo faster and shows orchestration depth
 
 Skip everything else for the demo. Document it as "future work" on the slide deck.
 
@@ -150,4 +156,5 @@ Skip everything else for the demo. Document it as "future work" on the slide dec
 - ✅ "Pydantic structured output ensures every agent handoff is validated"
 - ✅ "Provider-agnostic via OpenRouter — swap Claude/GPT/Gemini with one env var"
 - ✅ "Plain-English remediations any team member can follow, not just SREs"
+- ✅ "RAG-grounded fixes — remediation agent retrieves from a runbook knowledge base and cites the source"
 - ✅ "Open source, ready to extend with the team's own runbooks and integrations"
