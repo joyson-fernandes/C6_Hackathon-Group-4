@@ -89,7 +89,15 @@ class State(TypedDict, total=False):
     remediations: dict[str, Fix]               # set by remediation node
     cookbook: Checklist                        # set by cookbook node
     slack_thread_ts: str | None                # set by slack node
+    slack_status: str                          # "sent_mock" | "prepared_mock" | "skipped"
+    slack_channel: str | None
+    slack_message_id: str | None
+    slack_message_preview: str
+    jira_status: str                           # "created_mock" | "skipped"
     jira_keys: list[str]                       # set by jira node
+    jira_priority: str | None
+    jira_summary: str
+    jira_description_preview: str
     report_md: str                             # set by final report node
 
     # --- RAG payload (populated by remediation node) ---

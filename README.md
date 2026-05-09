@@ -27,8 +27,8 @@ You upload a log file. The system:
 3. **Recommends a fix** for each incident with rationale, ordered steps, and risk level (RAG-grounded against the runbook KB).
 4. **Validates the remediation** with a critic agent that returns `approved`, `needs_revision`, or `escalate`. Weak remediations loop back for up to **2 retries**; critical incidents requiring escalation route through a human approval gate.
 5. **Synthesizes a runbook** — one consolidated checklist across all incidents.
-6. **Posts to Slack** as a threaded message *(stub — safe in demo mode)*.
-7. **Files JIRA tickets** for `high` / `critical` severity only *(stub — safe in demo mode)*.
+6. **Posts to Slack** as a threaded message *(demo-safe mock tool)*.
+7. **Files JIRA tickets** for `high` / `critical` severity only *(demo-safe mock tool)*.
 8. **Renders a final report** in Markdown.
 
 All orchestrated as a LangGraph DAG with conditional routing. Surfaced through a React UI (Dashboard, Incidents, Workflow, Integrations, History, Settings).
@@ -99,7 +99,7 @@ C6_Hackathon-Group-4/
 │   ├── remediation.py        # incident → Fix (RAG-grounded)
 │   ├── validator.py          # critic agent: approved / needs_revision / escalate
 │   ├── cookbook.py           # all incidents → consolidated Checklist
-│   ├── notifier.py           # Slack + JIRA stubs (safe in demo mode)
+│   ├── notifier.py           # Slack + JIRA mock tools (safe in demo mode)
 │   └── graph.py              # LangGraph StateGraph + conditional edges
 │
 ├── app/
@@ -148,8 +148,12 @@ C6_Hackathon-Group-4/
   rag_sources: string[],                 // runbook filenames cited
   rag_confidence: 'high' | 'medium' | 'low' | 'none',
   rag_compliance: RagComplianceEntry[],  // severity-based policy verdicts
-  slack_thread_ts: string | null,        // stub
-  jira_keys: string[]                    // stub
+  slack_status: 'sent_mock' | 'prepared_mock' | 'skipped',
+  slack_thread_ts: string | null,        // mock Slack message id
+  slack_message_preview: string,
+  jira_status: 'created_mock' | 'skipped',
+  jira_keys: string[],                   // mock JIRA keys
+  jira_summary: string
 }
 ```
 
@@ -275,8 +279,8 @@ Use `payment_errors.log` for the headline demo — produces 4-5 incidents.
 3. **Remediation** (`agents/remediation.py`) — per-incident loop. For each one: BM25 retrieval over `knowledge_base/` → top-3 snippets fed into the prompt → structured `Fix(rationale, steps, risk, runbook_ref)`. Severity-based RAG policy enforces evidence requirements (`critical` = mandatory, `high` = strongly preferred, etc.).
 4. **Validator** (`agents/validator.py`) — critic agent. Returns `approved`, `needs_revision`, or `escalate` with a `quality_score` and `revision_instruction`. Weak remediations loop back to the remediation agent for up to 2 retries.
 5. **Cookbook synthesizer** (`agents/cookbook.py`) — one LLM call over all incidents + fixes → consolidated `Checklist`.
-6. **Slack notifier** (`agents/notifier.py::notify_slack`) — **stub**. Returns `"not-implemented"`. Implement with `slack-sdk`.
-7. **JIRA ticketer** (`agents/notifier.py::file_jira`) — **stub**. Returns `[]`. Implement with `atlassian-python-api`, filter to `severity ∈ {high, critical}`.
+6. **Slack notifier** (`agents/notifier.py::notify_slack`) — demo-safe mock tool. Returns realistic mock message metadata such as `sent_mock`, `#sre-incidents`, and a message preview without calling Slack.
+7. **JIRA ticketer** (`agents/notifier.py::file_jira`) — demo-safe mock tool. Returns mock ticket metadata such as `created_mock`, `OPS-1001`, priority, summary, and description preview without calling JIRA.
 8. **Final report builder** (`agents/graph.py::build_report`) — pure Python. Walks the state and renders one markdown string.
 
 State flow: `agents/models.py::State` is a TypedDict threaded through every node. Each node returns a partial dict that LangGraph merges in.
@@ -298,9 +302,9 @@ State flow: `agents/models.py::State` is a TypedDict threaded through every node
 | `ENVIRONMENT` | Runtime label, e.g. `local` |
 | `LOG_LEVEL` | Logging level, e.g. `INFO` |
 | `CORS_ORIGINS` | Comma-separated allowlist for the FastAPI CORS middleware. Default covers `:3000` and `:5173` |
-| `SLACK_BOT_TOKEN` | When notifier is implemented |
-| `SLACK_CHANNEL` | When notifier is implemented |
-| `JIRA_URL` / `JIRA_USER` / `JIRA_TOKEN` / `JIRA_PROJECT_KEY` | When JIRA filer is implemented |
+| `SLACK_BOT_TOKEN` | Reserved for a future real Slack client; not required for mock demo mode |
+| `SLACK_CHANNEL` | Reserved for a future real Slack client; not required for mock demo mode |
+| `JIRA_URL` / `JIRA_USER` / `JIRA_TOKEN` / `JIRA_PROJECT_KEY` | Reserved for a future real JIRA client; not required for mock demo mode |
 
 ### Frontend (`web/.env`)
 
@@ -309,6 +313,8 @@ State flow: `agents/models.py::State` is a TypedDict threaded through every node
 | `VITE_API_URL` | Backend base URL. Default `http://localhost:8000` |
 
 **Never commit `.env`.** Root and frontend env files are ignored; commit only `.env.example` files.
+
+Slack and JIRA are implemented as demo-safe mock tools. They demonstrate the action/tool integration pattern without requiring external credentials. Real Slack/JIRA clients can be added later using environment variables.
 
 ---
 

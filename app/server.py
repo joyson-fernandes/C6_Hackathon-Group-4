@@ -158,9 +158,17 @@ def analyze(
         "human_approval_status": state.get("human_approval_status"),
         "execution_path": state.get("execution_path", []),
 
-        # Notifier stubs
+        # Demo-safe notifier mock outputs
+        "slack_status": state.get("slack_status", "skipped"),
+        "slack_channel": state.get("slack_channel"),
+        "slack_message_id": state.get("slack_message_id"),
         "slack_thread_ts": state.get("slack_thread_ts"),
+        "slack_message_preview": state.get("slack_message_preview", ""),
+        "jira_status": state.get("jira_status", "skipped"),
         "jira_keys": state.get("jira_keys", []),
+        "jira_priority": state.get("jira_priority"),
+        "jira_summary": state.get("jira_summary", ""),
+        "jira_description_preview": state.get("jira_description_preview", ""),
     }
 
 

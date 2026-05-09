@@ -48,7 +48,7 @@ export function toIncident(
     assignedWorkflow: run.report.routing_path ?? fix?.runbook_ref ?? 'auto-classified',
     shortDescription: inc.summary,
     assignedTeam: inc.service,
-    slackChannel: run.report.slack_thread_ts ?? undefined,
+    slackChannel: run.report.slack_channel ?? run.report.slack_thread_ts ?? undefined,
     jiraTicket: run.report.jira_keys[0],
   };
 }
@@ -152,17 +152,17 @@ const NODE_SPECS: NodeSpec[] = [
   {
     id: 'slack',
     name: 'Slack Notifier',
-    description: 'Threaded message per incident (stub).',
+    description: 'Demo-safe mock Slack notification.',
     output: r =>
-      r.slack_thread_ts && r.slack_thread_ts !== 'not-implemented'
-        ? r.slack_thread_ts
-        : 'Stub — implement notify_slack to enable.',
+      r.slack_status === 'sent_mock' || r.slack_status === 'prepared_mock'
+        ? `${r.slack_status}: ${r.slack_message_preview ?? r.slack_thread_ts}`
+        : 'Skipped.',
   },
   {
     id: 'jira',
     name: 'JIRA Ticketer',
-    description: 'Files tickets for high/critical incidents (stub).',
-    output: r => r.jira_keys.length > 0 ? `Filed: ${r.jira_keys.join(', ')}` : 'Stub — implement file_jira to enable.',
+    description: 'Demo-safe mock JIRA ticket creation.',
+    output: r => r.jira_keys.length > 0 ? `${r.jira_status ?? 'created_mock'}: ${r.jira_keys.join(', ')}` : 'Skipped.',
   },
   {
     id: 'report',
@@ -198,8 +198,8 @@ export function toIntegrations(run: AnalysisRun | null): IntegrationStatus[] {
   if (!run) return [];
   const r = run.report;
 
-  const slackOk = !!r.slack_thread_ts && r.slack_thread_ts !== 'not-implemented';
-  const jiraOk = r.jira_keys.length > 0;
+  const slackOk = r.slack_status === 'sent_mock' || r.slack_status === 'prepared_mock';
+  const jiraOk = r.jira_status === 'created_mock' || r.jira_keys.length > 0;
 
   return [
     {
@@ -208,13 +208,13 @@ export function toIntegrations(run: AnalysisRun | null): IntegrationStatus[] {
       type: 'notification',
       status: slackOk ? 'healthy' : 'offline',
       latency: '—',
-      uptime: slackOk ? 'connected' : 'stub',
+      uptime: r.slack_status ?? 'skipped',
       lastExecution: {
         timestamp: run.startedAt,
         status: slackOk ? 'success' : 'failure',
         retryCount: 0,
         payload: undefined,
-        response: r.slack_thread_ts ?? 'not-implemented',
+        response: r.slack_message_preview || r.slack_thread_ts || 'skipped',
       },
     },
     {
@@ -223,13 +223,13 @@ export function toIntegrations(run: AnalysisRun | null): IntegrationStatus[] {
       type: 'ticketing',
       status: jiraOk ? 'healthy' : 'offline',
       latency: '—',
-      uptime: jiraOk ? 'connected' : 'stub',
+      uptime: r.jira_status ?? 'skipped',
       lastExecution: {
         timestamp: run.startedAt,
         status: jiraOk ? 'success' : 'failure',
         retryCount: 0,
         payload: undefined,
-        response: r.jira_keys.length ? r.jira_keys.join(', ') : 'no tickets filed',
+        response: r.jira_summary || (r.jira_keys.length ? r.jira_keys.join(', ') : 'skipped'),
       },
     },
     {
