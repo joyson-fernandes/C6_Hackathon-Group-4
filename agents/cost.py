@@ -18,9 +18,14 @@ from typing import Any
 from langchain_core.callbacks import BaseCallbackHandler
 
 PRICING: dict[str, dict[str, float]] = {
+    # Canonical OpenRouter ids.
     "anthropic/claude-sonnet-4.5":   {"input": 3.00, "output": 15.00},
     "anthropic/claude-haiku-4.5":    {"input": 0.80, "output": 4.00},
     "anthropic/claude-opus-4.5":     {"input": 15.00, "output": 75.00},
+    # Aliases — OpenRouter's response sometimes reorders the model id.
+    "anthropic/claude-4.5-sonnet":   {"input": 3.00, "output": 15.00},
+    "anthropic/claude-4.5-haiku":    {"input": 0.80, "output": 4.00},
+    "anthropic/claude-4.5-opus":     {"input": 15.00, "output": 75.00},
     "openai/gpt-4o":                 {"input": 2.50, "output": 10.00},
     "openai/gpt-4o-mini":            {"input": 0.15, "output": 0.60},
     "openai/gpt-4.1":                {"input": 2.00, "output": 8.00},
