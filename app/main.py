@@ -1,24 +1,7 @@
-"""Streamlit UI for the Multi-Agent DevOps Incident Analysis Suite.
-
-Streamlit reruns this entire script top-to-bottom every time the user
-interacts with a widget (button click, file upload, checkbox toggle).
-That means:
-  - Local variables don't persist across interactions.
-  - Anything you want to keep between reruns must go into st.session_state
-    (a global dict-like object Streamlit gives us).
-
-The script flow:
-  1. Page setup (title, caption).
-  2. Initialize session_state if first run.
-  3. Sidebar (always rendered).
-  4. File uploader + show input logs if any.
-  5. Optional LangGraph DAG image.
-  6. Analyze button -- when clicked, run the graph and render results.
-"""
+"""Streamlit UI for the Multi-Agent DevOps Incident Analysis Suite."""
 import sys
 from pathlib import Path
 
-# Make sure Python can find the `agents` package when running from the project root.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import streamlit as st
@@ -74,9 +57,12 @@ if st.button("Analyze", type="primary", disabled=not logs_text):
         result = graph.invoke({"raw_logs": logs_text})
         status.update(label="Done", state="complete")
 
-    tab1, tab2, tab3, tab4 = st.tabs(["Incidents", "Remediations", "Cookbook", "Notifications"])
+    tab_inc, tab_rem, tab_rag, tab_cb, tab_notif = st.tabs(
+        ["Incidents", "Remediations", "RAG", "Cookbook", "Notifications"]
+    )
 
-    with tab1:
+    # Tab: Incidents
+    with tab_inc:
         for inc in result["incidents"]:
             sev_color = {"critical": ":red", "high": ":orange", "warn": ":yellow", "info": ":blue"}[inc.severity]
             st.markdown(f"**{inc.id}** {sev_color}[`{inc.severity}`] - `{inc.service}` - {inc.error_type}")
@@ -84,7 +70,8 @@ if st.button("Analyze", type="primary", disabled=not logs_text):
             with st.expander("evidence"):
                 st.code(inc.evidence)
 
-    with tab2:
+    # Tab: Remediations
+    with tab_rem:
         for fid, fix in result["remediations"].items():
             st.subheader(f"{fid} - risk: {fix.risk}")
             if fix.runbook_ref:
@@ -93,16 +80,55 @@ if st.button("Analyze", type="primary", disabled=not logs_text):
             for n, s in enumerate(fix.steps, 1):
                 st.write(f"{n}. {s}")
 
-    with tab3:
+    # Tab: RAG (the structured payload)
+    with tab_rag:
+        confidence = result.get("rag_confidence", "none")
+        sources = result.get("rag_sources", [])
+        snippets = result.get("retrieved_runbooks", [])
+
+        cols = st.columns(3)
+        cols[0].metric("Confidence", confidence)
+        cols[1].metric("Unique sources", len(sources))
+        cols[2].metric("Snippets retrieved", len(snippets))
+
+        if sources:
+            st.markdown("**Sources cited:**")
+            for src in sources:
+                st.markdown(f"- `{src}`")
+
+        st.divider()
+        st.markdown("### Retrieved snippets (sorted by score)")
+        for snip in snippets:
+            with st.expander(
+                f"{snip['source']} -> {snip['matched_section']}  (score: {snip['score']})"
+            ):
+                st.markdown(snip["content"])
+
+        st.divider()
+        st.markdown("### Raw RAG payload (state object)")
+        st.json({
+            "retrieved_runbooks": snippets,
+            "rag_sources": sources,
+            "rag_confidence": confidence,
+            # rag_context can be huge; show a truncated preview only.
+            "rag_context_preview": (result.get("rag_context", "") or "")[:1000] + (
+                "..." if len(result.get("rag_context", "") or "") > 1000 else ""
+            ),
+        })
+
+    # Tab: Cookbook
+    with tab_cb:
         cb = result.get("cookbook")
         if cb:
             st.subheader(cb.title)
             for it in cb.items:
                 st.checkbox(it, key=f"cb-{it}")
 
-    with tab4:
+    # Tab: Notifications
+    with tab_notif:
         st.write(f"Slack thread: `{result.get('slack_thread_ts')}`")
         st.write(f"JIRA tickets: {result.get('jira_keys', [])}")
 
+    # Final markdown report.
     st.divider()
     st.markdown(result["report_md"])

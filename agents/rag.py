@@ -1,94 +1,116 @@
-"""RAG over the runbooks knowledge base.
+"""RAG over the knowledge_base/ runbooks.
 
 Why BM25 instead of embeddings:
-  - Zero API calls -> no extra cost, no extra credentials, works offline.
-  - No torch / sentence-transformers dependency (~2 GB install) -- great for a
-    hackathon environment.
-  - For a curated KB of ~10 documents, BM25 keyword retrieval is genuinely
-    competitive with semantic search.
+  - Zero API calls, no extra credentials, works offline.
+  - No torch / sentence-transformers dependency (~2 GB install).
+  - For a curated KB of ~10 documents, BM25 is competitive with semantic search.
 
-When to upgrade to semantic embeddings:
-  - When the runbook KB grows past ~50 docs and queries miss relevant ones
-    that use different wording.
-  - When you want cross-language retrieval.
-  - Drop-in replacement: swap _build_index() for any LangChain VectorStore
-    (Chroma, FAISS, InMemoryVectorStore) and update retrieve() accordingly.
+Drop-in upgrade path: replace _build_index() with any LangChain VectorStore
+(Chroma, FAISS, InMemoryVectorStore) and update retrieve_detailed().
 
-How it works:
-  1. At import time we load every .md file under runbooks/.
-  2. We chunk each file into sections (split on "## " headers) so retrieval
-    can return a focused snippet, not a whole document.
-  3. We tokenize each chunk and build a BM25 index.
-  4. retrieve(query, k) returns the top-k matching chunks as plain text.
+Public API:
+  retrieve_detailed(query, k) -> list[RetrievedSnippet]
+      Returns dicts with source / matched_section / content / score.
+  build_rag_payload(query, k) -> dict
+      Returns the full structured payload that gets stored in graph state:
+      {retrieved_runbooks, rag_context, rag_sources, rag_confidence}.
+  retrieve(query, k) -> list[str]
+      Backward-compatible plain-text helper.
+  kb_size() -> int
 """
 import re
 from pathlib import Path
+from typing import TypedDict
 from rank_bm25 import BM25Okapi
 
 
-# Directory holding the runbook markdown files. Sits at the repo root.
-RUNBOOKS_DIR = Path(__file__).resolve().parent.parent / "runbooks"
+# Knowledge base lives at the repo root.
+KB_DIR = Path(__file__).resolve().parent.parent / "knowledge_base"
+
+
+class RetrievedSnippet(TypedDict):
+    """One match returned from the knowledge base."""
+    source: str           # filename without extension, e.g. "nginx_502_runbook"
+    matched_section: str  # the ## header that introduces this chunk
+    content: str          # the snippet body (without the [from xxx] prefix)
+    score: float          # BM25 relevance score (higher = better)
 
 
 def _tokenize(text: str) -> list[str]:
-    """Lower-case word tokenization. Good enough for keyword matching."""
-    # Strip punctuation, lowercase, split on whitespace.
+    """Lower-case word tokenization."""
     return re.findall(r"[a-z0-9]+", text.lower())
 
 
-def _chunk_markdown(text: str, source: str) -> list[dict]:
-    """Split a markdown doc into section-sized chunks keyed by ## headers.
+def _extract_section_header(chunk_text: str) -> str:
+    """Pull the first ## header from a chunk, or fall back to the # title."""
+    for line in chunk_text.splitlines():
+        line = line.strip()
+        if line.startswith("## "):
+            return line.removeprefix("## ").strip()
+        if line.startswith("# "):
+            return line.removeprefix("# ").strip()
+    return "(unknown section)"
 
-    Each chunk gets the source filename prepended so the LLM knows which
-    runbook the snippet came from.
+
+def _chunk_markdown(text: str, source: str) -> list[dict]:
+    """Split a markdown doc into chunks keyed by ## headers.
+
+    Each chunk records its source filename + the section header so we can
+    surface them in the structured retrieval result.
     """
     chunks: list[dict] = []
-    # Split on "## " headers but keep them attached to the following content.
     sections = re.split(r"\n(?=## )", text)
     for sec in sections:
         sec = sec.strip()
-        if not sec:
-            continue
-        # Skip very short fragments (likely just a title with no body).
-        if len(sec) < 50:
+        if not sec or len(sec) < 50:
             continue
         chunks.append({
             "source": source,
-            "text": f"[from {source}]\n{sec}",
+            "matched_section": _extract_section_header(sec),
+            "content": sec,
         })
     return chunks
 
 
 def _build_index() -> tuple[BM25Okapi, list[dict]]:
-    """Load all runbooks, chunk them, and build the BM25 index once at startup."""
+    """Load all runbooks, chunk them, build the BM25 index ONCE at startup."""
     chunks: list[dict] = []
-    if RUNBOOKS_DIR.exists():
-        for md_file in sorted(RUNBOOKS_DIR.glob("*.md")):
+    if KB_DIR.exists():
+        for md_file in sorted(KB_DIR.glob("*.md")):
             text = md_file.read_text(encoding="utf-8")
             chunks.extend(_chunk_markdown(text, md_file.stem))
 
     if not chunks:
-        # No runbooks loaded -- index is empty but won't crash on retrieve().
         return BM25Okapi([["placeholder"]]), []
 
-    tokenized_corpus = [_tokenize(c["text"]) for c in chunks]
+    tokenized_corpus = [_tokenize(c["content"]) for c in chunks]
     return BM25Okapi(tokenized_corpus), chunks
 
 
-# Build the index ONCE at import time. Subsequent retrieve() calls are fast.
 _INDEX, _CHUNKS = _build_index()
 
 
-def retrieve(query: str, k: int = 3) -> list[str]:
-    """Return the top-k most relevant runbook snippets for the query.
+def _confidence_label(top_score: float) -> str:
+    """Map a BM25 score to a coarse confidence band for UI display.
 
-    Args:
-        query: incident summary, error message, or any natural language search.
-        k: number of snippets to return.
+    BM25 scores are unbounded but typically fall in 0-15 range for our corpus.
+    Thresholds tuned empirically from the bundled runbooks; tweak as needed.
+    """
+    if top_score >= 5.0:
+        return "high"
+    if top_score >= 2.0:
+        return "medium"
+    if top_score > 0.0:
+        return "low"
+    return "none"
+
+
+def retrieve_detailed(query: str, k: int = 3) -> list[RetrievedSnippet]:
+    """Return top-k matching snippets as structured dicts.
 
     Returns:
-        List of plain-text snippets (already formatted with source attribution).
-        Empty list if no runbooks are indexed.
+        List of RetrievedSnippet dicts, sorted by score descending. Empty list
+        if no matches. Filters out zero-score results (no keyword overlap).
     """
     if not _CHUNKS:
         return []
@@ -97,13 +119,73 @@ def retrieve(query: str, k: int = 3) -> list[str]:
     if not tokenized_query:
         return []
 
-    # BM25 returns a score per chunk; we sort and take the top-k.
     scores = _INDEX.get_scores(tokenized_query)
     ranked = sorted(zip(scores, _CHUNKS), key=lambda x: x[0], reverse=True)
-    # Filter out zero-score matches (no keyword overlap at all).
-    return [chunk["text"] for score, chunk in ranked[:k] if score > 0]
+
+    return [
+        RetrievedSnippet(
+            source=f"{chunk['source']}.md",
+            matched_section=chunk["matched_section"],
+            content=chunk["content"],
+            score=round(float(score), 3),
+        )
+        for score, chunk in ranked[:k]
+        if score > 0
+    ]
+
+
+def build_rag_payload(query: str, k: int = 3) -> dict:
+    """Build the full RAG payload for storing in graph state.
+
+    Returns a dict shaped like:
+        {
+          "retrieved_runbooks": [{source, matched_section, content, score}, ...],
+          "rag_context": "concatenated snippet text used in prompts",
+          "rag_sources": ["nginx_502_runbook.md", ...],   # unique
+          "rag_confidence": "high" | "medium" | "low" | "none"
+        }
+    """
+    snippets = retrieve_detailed(query, k=k)
+
+    rag_context = (
+        "\n\n---\n\n".join(
+            f"[from {s['source']} -> {s['matched_section']}]\n{s['content']}"
+            for s in snippets
+        )
+        if snippets
+        else "(no specific runbook matched)"
+    )
+
+    # Dedupe sources while preserving rank order.
+    seen: set[str] = set()
+    unique_sources: list[str] = []
+    for s in snippets:
+        if s["source"] not in seen:
+            seen.add(s["source"])
+            unique_sources.append(s["source"])
+
+    confidence = _confidence_label(snippets[0]["score"] if snippets else 0.0)
+
+    return {
+        "retrieved_runbooks": snippets,
+        "rag_context": rag_context,
+        "rag_sources": unique_sources,
+        "rag_confidence": confidence,
+    }
+
+
+def retrieve(query: str, k: int = 3) -> list[str]:
+    """Backward-compatible plain-text retrieval.
+
+    Returns a list of pre-formatted snippet strings ready to drop into a prompt.
+    """
+    detailed = retrieve_detailed(query, k=k)
+    return [
+        f"[from {s['source']} -> {s['matched_section']}]\n{s['content']}"
+        for s in detailed
+    ]
 
 
 def kb_size() -> int:
-    """How many runbook chunks are currently indexed (useful for the UI)."""
+    """How many runbook chunks are currently indexed."""
     return len(_CHUNKS)

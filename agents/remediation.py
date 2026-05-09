@@ -7,29 +7,20 @@ For EACH incident produced by the classifier, generate a Fix:
 
 NEW: for each incident we first retrieve the top-3 most relevant runbook
 snippets from the knowledge base (via agents/rag.py) and inject them into
-the prompt. This grounds the LLM in *our team's specific procedures* instead
+the prompt. This grounds the LLM in our team's specific procedures instead
 of generic patterns -- the core RAG (Retrieval-Augmented Generation) move.
 
-This node runs *sequentially* over incidents in the current implementation.
-Easy upgrade for later: parallelize using LangGraph's Send API or asyncio.
+Beyond per-incident retrieval, this node also AGGREGATES every retrieval
+across all incidents and writes a structured RAG payload back to graph state:
+  - retrieved_runbooks (deduped list of snippets)
+  - rag_context (concatenated snippet text)
+  - rag_sources (unique filenames)
+  - rag_confidence (high / medium / low / none)
+The UI can read these directly.
 """
 from .config import get_llm
-from .models import Fix, Incident, State
-from .rag import retrieve
-
-# Fallback runbook -- used when RAG returns no matches (unusual log type).
-GENERIC_RUNBOOK = """
-Common patterns and how to fix them in plain language:
-
-- App keeps crashing on startup: check the logs for the actual error message, verify all required settings/env variables are filled in, confirm the database is reachable.
-- Out of memory / app killed: increase the memory allowed for the app, look for memory leaks, reduce the workload or split it across more instances.
-- Slow responses / timeouts: find the slow query or API call, add an index or cache, increase the timeout if the work is genuinely long.
-- Database connection errors: check connection pool size vs database limit, close idle connections, look for transactions that never finish.
-- Disk full: delete old logs/backups/temporary files, set up automatic cleanup, increase disk size if needed.
-- Login failures / brute force: block the offending IP, enable rate limiting, require captcha, lock the targeted account.
-- Email/SMTP failing: verify SMTP credentials, check the email provider's status page, confirm the server can reach the SMTP host.
-- Payment failures: check the payment provider's status, verify API keys, look for rate limiting, retry with backoff.
-"""
+from .models import Fix, Incident, RetrievedSnippet, State
+from .rag import build_rag_payload
 
 PROMPT = """You are a helpful engineer explaining a fix to a teammate.
 
@@ -37,21 +28,19 @@ Given the incident below, propose a concrete fix.
 
 Style rules for the steps:
 - Use plain English. Avoid jargon and tool-specific commands.
-- Each step should be a short sentence describing WHAT to do, not HOW (no kubectl/docker/SQL syntax).
+- Each step should be a short sentence describing WHAT to do, not HOW.
 - 3 to 6 steps total. Order them by what to do first.
-- Anyone on a small dev team (frontend, backend, QA, PM) should be able to follow along.
+- Anyone on a small dev team (frontend, backend, QA, PM) should follow it.
 
 PRIORITIZE the team's own runbooks below over generic advice when they apply.
-If a runbook snippet covers this incident, follow its specific guidance and cite the
-source filename in runbook_ref (e.g. "database_outage").
+If a runbook snippet covers this incident, follow its specific guidance and
+cite the source filename in runbook_ref (e.g. "nginx_502_runbook").
 
-Return rationale (root cause in 1-2 sentences), ordered steps, risk level, and a runbook_ref slug if applicable.
+Return rationale (root cause in 1-2 sentences), ordered steps, risk level,
+and a runbook_ref slug if applicable.
 
-=== TEAM RUNBOOKS (retrieved for this incident) ===
-{retrieved}
-
-=== GENERIC FALLBACK PATTERNS ===
-{generic}
+=== TEAM RUNBOOKS (retrieved for this incident, confidence: {confidence}) ===
+{rag_context}
 
 === INCIDENT ===
 id: {id}
@@ -65,33 +54,24 @@ evidence:
 
 
 def _build_query(incident: Incident) -> str:
-    """Combine the most relevant incident fields into a search query for RAG.
-
-    We prioritize error_type + summary because those carry the keywords that
-    match runbook content. Evidence often has noisy timestamps and IDs that
-    confuse keyword search.
-    """
+    """Build a search query from the incident's most signal-rich fields."""
     return f"{incident.error_type} {incident.summary} {incident.service}"
 
 
-def remediate_one(incident: Incident) -> Fix:
-    """Generate a Fix for a single Incident. Two LLM-touching steps:
-       1. Retrieve relevant runbook snippets (no LLM, just keyword search).
-       2. One LLM call to synthesize the fix using those snippets.
-    """
-    # --- RAG retrieval -------------------------------------------------
-    snippets = retrieve(_build_query(incident), k=3)
-    retrieved_text = (
-        "\n\n---\n\n".join(snippets)
-        if snippets
-        else "(no specific runbook matched -- rely on the generic patterns below)"
-    )
+def remediate_one(incident: Incident) -> tuple[Fix, dict]:
+    """Generate a Fix and return it along with the RAG payload used.
 
-    # --- LLM call with retrieved context -------------------------------
+    Returns:
+        (fix, rag_payload) where rag_payload is the structured dict from
+        build_rag_payload(). Caller is responsible for aggregating payloads
+        across incidents.
+    """
+    payload = build_rag_payload(_build_query(incident), k=3)
+
     llm = get_llm(max_tokens=2048, structured_output_schema=Fix)
-    return llm.invoke(PROMPT.format(
-        retrieved=retrieved_text,
-        generic=GENERIC_RUNBOOK,
+    fix = llm.invoke(PROMPT.format(
+        confidence=payload["rag_confidence"],
+        rag_context=payload["rag_context"],
         id=incident.id,
         service=incident.service,
         error_type=incident.error_type,
@@ -99,15 +79,57 @@ def remediate_one(incident: Incident) -> Fix:
         summary=incident.summary,
         evidence=incident.evidence[:2000],
     ))
+    return fix, payload
+
+
+def _confidence_rank(label: str) -> int:
+    return {"none": 0, "low": 1, "medium": 2, "high": 3}.get(label, 0)
 
 
 def remediate(state: State) -> dict:
-    """LangGraph node: turn list[Incident] into dict[id, Fix].
+    """LangGraph node: produce remediations + aggregated RAG payload.
 
-    For each incident we:
-      1. Search the runbook KB with BM25 for the top-3 relevant snippets.
-      2. Pass those snippets + a generic fallback to the LLM.
-      3. The LLM produces a Fix grounded in the team's own procedures.
+    Iterates every incident, retrieves runbooks, calls the LLM, and
+    aggregates the per-incident RAG results into a single state-level
+    payload (deduped sources, combined context, max confidence).
     """
-    fixes = {inc.id: remediate_one(inc) for inc in state["incidents"]}
-    return {"remediations": fixes}
+    fixes: dict[str, Fix] = {}
+    all_snippets: list[RetrievedSnippet] = []
+    seen_keys: set[tuple[str, str]] = set()  # (source, matched_section)
+    contexts: list[str] = []
+    sources_in_order: list[str] = []
+    seen_sources: set[str] = set()
+    max_confidence = "none"
+
+    for inc in state["incidents"]:
+        fix, payload = remediate_one(inc)
+        fixes[inc.id] = fix
+
+        # Aggregate snippets, dedup by (source, matched_section).
+        for snip in payload["retrieved_runbooks"]:
+            key = (snip["source"], snip["matched_section"])
+            if key not in seen_keys:
+                seen_keys.add(key)
+                all_snippets.append(snip)
+
+        if payload["rag_context"] and payload["rag_context"] != "(no specific runbook matched)":
+            contexts.append(f"# Context for {inc.id}\n{payload['rag_context']}")
+
+        for src in payload["rag_sources"]:
+            if src not in seen_sources:
+                seen_sources.add(src)
+                sources_in_order.append(src)
+
+        if _confidence_rank(payload["rag_confidence"]) > _confidence_rank(max_confidence):
+            max_confidence = payload["rag_confidence"]
+
+    # Sort the aggregated snippets by score (highest first) for nicer display.
+    all_snippets.sort(key=lambda s: s["score"], reverse=True)
+
+    return {
+        "remediations": fixes,
+        "retrieved_runbooks": all_snippets,
+        "rag_context": "\n\n===\n\n".join(contexts) if contexts else "(no specific runbook matched)",
+        "rag_sources": sources_in_order,
+        "rag_confidence": max_confidence,
+    }
