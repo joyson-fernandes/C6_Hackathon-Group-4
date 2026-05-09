@@ -56,58 +56,30 @@ flowchart TD
     B --> C{Severity Router}
     C -->|Critical / High| D[Deep Analysis Agent]
     C -->|Medium| E[RAG Runbook Retriever]
-    C -->|Low| F[Standard Remediation Agent]
+    C -->|Low| H[Remediation Agent]
     C -->|Info| G[Summary Report Builder]
     D --> E
-    E --> H[Remediation Agent]
-    F --> H
+    E --> H
     H --> I[Validator / Critic Agent]
     I -->|Needs Revision and Retry &lt; 2| H
     I -->|Approved| J[Cookbook Synthesizer Agent]
     I -->|Escalation Required| K[Human Approval Node]
     J --> K
-    K -->|Approved or Mock Approval| L[Gmail or Slack Notification Tool]
-    K -->|Approved or Mock Approval| M[JIRA Ticket Tool]
-    K -->|Rejected or Approval Pending| N[Final Incident Report]
-    L --> N
-    M --> N
+    K --> L[Slack Notification Tool]
+    L --> M[JIRA Ticket Tool]
+    M --> N[Final Incident Report]
     G --> N
     N --> O[Streamlit UI Output]
 ```
 
 The workflow uses LangGraph conditional routing. Critical and high-severity
 incidents are routed through deep analysis, RAG-backed remediation, validator
-review, and human approval before external notifications or ticket creation.
-Medium incidents use RAG and standard remediation, while low/info events
-follow a lightweight summary path. The validator agent creates a feedback
-loop by sending weak remediation outputs back for revision (capped at 2
-retries) before final reporting.
-        ┌─────────────────┐
-        │   upload_logs   │  Streamlit file upload → raw text
-        └────────┬────────┘
-                 ▼
-        ┌─────────────────┐
-        │   classifier    │  LLM + structured output → list[Incident]
-        └────────┬────────┘
-                 ▼
-        ┌─────────────────┐
-        │   remediation   │  per-incident fan-out → dict[id, Fix]
-        └────────┬────────┘
-                 ▼
-        ┌─────────────────┐
-        │    cookbook     │  consolidated Checklist
-        └────────┬────────┘
-          ┌──────┴──────┐
-          ▼             ▼
-     ┌────────┐    ┌────────┐
-     │  slack │    │  jira  │  (high/critical only)
-     └────┬───┘    └───┬────┘
-          └──────┬─────┘
-                 ▼
-        ┌─────────────────┐
-        │   final report  │  rendered markdown in UI
-        └─────────────────┘
-```
+review, and human approval before Slack notifications and JIRA ticket
+creation. Medium incidents use RAG before remediation, low incidents go
+straight to remediation, and info-only logs follow a lightweight summary
+path that bypasses remediation entirely. The validator agent creates a
+feedback loop by sending weak remediation outputs back for revision (capped
+at 2 retries) before final reporting.
 
 ---
 
