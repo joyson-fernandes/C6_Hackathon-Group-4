@@ -2,21 +2,19 @@
 
 **Multi-Agent DevOps Incident Analysis Suite**
 
-Upload ops logs → 5 LangGraph agents analyze them → structured incidents, remediations, Slack notifications, JIRA tickets, and a consolidated runbook checklist.
+Upload ops logs to a React UI → LangGraph agents on a FastAPI backend analyze them → structured incidents, RAG-grounded remediations, validator critic loop, optional human approval, Slack/JIRA fan-out, and a final markdown report.
 
 ---
 
-## Table of Contents
-- [What it does](#what-it-does)
-- [Architecture](#architecture)
-- [Project structure](#project-structure)
-- [Setup](#setup)
-- [Running the app](#running-the-app)
-- [Demo logs](#demo-logs)
-- [How the agents work](#how-the-agents-work)
-- [Environment variables](#environment-variables)
-- [Git workflow & branching](#git-workflow--branching)
-- [Troubleshooting](#troubleshooting)
+## Stack
+
+| Layer | Tech |
+|---|---|
+| Frontend | React 19 + Vite + TypeScript + Tailwind v4 + Framer Motion |
+| Backend | FastAPI + LangGraph + langchain-openai (via OpenRouter) |
+| Models | Pydantic v2 (typed state + structured LLM output) |
+| RAG | BM25 over markdown runbooks in `knowledge_base/` |
+| Default LLM | `anthropic/claude-sonnet-4.5` via OpenRouter (override with `OPENROUTER_MODEL`) |
 
 ---
 
@@ -33,7 +31,7 @@ You upload a log file. The system:
 7. **Files JIRA tickets** for `high` / `critical` severity only *(stub — safe in demo mode)*.
 8. **Renders a final report** in Markdown.
 
-All orchestrated as a LangGraph DAG with conditional routing. UI in Streamlit.
+All orchestrated as a LangGraph DAG with conditional routing. Surfaced through a React UI (Dashboard, Incidents, Workflow, Integrations, History, Settings).
 
 ### Key features
 
@@ -43,7 +41,7 @@ All orchestrated as a LangGraph DAG with conditional routing. UI in Streamlit.
 - **Validator / critic** agent with structured verdict
 - **Retry loop** for weak remediation (max 2)
 - **Human approval / escalation** path for critical incidents
-- **Mermaid architecture diagram** in this README
+- **React + FastAPI** split — frontend talks to backend over `POST /api/analyze`
 - Lightweight pytest suite for the router and validator
 
 ---
@@ -69,7 +67,7 @@ flowchart TD
     L --> M[JIRA Ticket Tool]
     M --> N[Final Incident Report]
     G --> N
-    N --> O[Streamlit UI Output]
+    N --> O[React UI Output]
 ```
 
 The workflow uses LangGraph conditional routing. Critical and high-severity
@@ -83,22 +81,21 @@ at 2 retries) before final reporting.
 
 ---
 
-## Project structure
+## Project layout
 
 ```
 C6_Hackathon-Group-4/
 ├── README.md
-├── requirements.txt
-├── .env.example              # copy to .env and fill in keys
+├── requirements.txt          # backend deps
+├── .env.example              # copy to .env, fill in OPENROUTER_API_KEY
 ├── .gitignore
 │
-├── agents/                   # all agent logic + LangGraph wiring
-│   ├── __init__.py
-│   ├── config.py             # loads .env, picks the model
-│   ├── models.py             # Pydantic: Incident, Fix, Checklist, State
+├── agents/                   # LangGraph agents and pipeline
+│   ├── config.py             # OpenRouter LLM factory
+│   ├── models.py             # Pydantic State, Incident, Fix, Checklist
 │   ├── classifier.py         # raw logs → list[Incident]
 │   ├── severity_router.py    # routing decision (critical/high/medium/low/info)
-│   ├── rag.py                # BM25 retrieval over runbooks/
+│   ├── rag.py                # BM25 retrieval over knowledge_base/
 │   ├── remediation.py        # incident → Fix (RAG-grounded)
 │   ├── validator.py          # critic agent: approved / needs_revision / escalate
 │   ├── cookbook.py           # all incidents → consolidated Checklist
@@ -106,18 +103,57 @@ C6_Hackathon-Group-4/
 │   └── graph.py              # LangGraph StateGraph + conditional edges
 │
 ├── app/
-│   └── main.py               # Streamlit UI
+│   ├── __init__.py
+│   └── server.py             # FastAPI server (POST /api/analyze)
 │
 ├── tests/                    # pytest tests for the router + validator
+│   ├── conftest.py
 │   ├── test_severity_router.py
 │   └── test_validator.py
 │
-└── Sample_logs/              # pre-canned demo logs anyone can read
-    ├── website_slow.log      # web app slowing down, DB query timeouts, 500s on checkout
-    ├── login_failures.log    # brute-force attempts, account lockouts, SMTP failures
-    ├── payment_errors.log    # card declines, gateway timeouts, Stripe rate limits, webhook failures
-    └── disk_full.log         # backup fails, uploads fail, DB transactions rolled back
+├── knowledge_base/           # markdown runbooks indexed by RAG at startup
+├── Sample_logs/              # demo log fixtures
+│
+└── web/                      # React + Vite UI
+    ├── index.html
+    ├── package.json
+    ├── vite.config.ts
+    ├── tsconfig.json
+    ├── .env                  # VITE_API_URL=http://localhost:8000
+    └── src/
+        ├── App.tsx
+        ├── main.tsx
+        ├── index.css
+        ├── pages/            # Dashboard, IncidentDetails, Workflow, Integrations, History, Settings
+        ├── components/       # LogUploader, RemediationPanel, CookbookPanel, AgentWorkflowGraph, ui/*
+        ├── hooks/            # useAnalysis, useIncidents
+        ├── services/apiService.ts
+        ├── store/AnalysisStore.tsx
+        ├── types/            # Incident, AnalysisReport, etc.
+        └── utils/            # cn, adapt (backend → frontend type mapping)
 ```
+
+---
+
+## API
+
+**`POST /api/analyze`** — body `{ "logs": "<raw log text>" }` → returns:
+
+```ts
+{
+  incidents: BackendIncident[],          // classifier output
+  remediations: Record<string, BackendFix>, // keyed by incident.id
+  cookbook: BackendChecklist | null,     // consolidated runbook
+  report_md: string,                     // pre-rendered markdown report
+  rag_sources: string[],                 // runbook filenames cited
+  rag_confidence: 'high' | 'medium' | 'low' | 'none',
+  rag_compliance: RagComplianceEntry[],  // severity-based policy verdicts
+  slack_thread_ts: string | null,        // stub
+  jira_keys: string[]                    // stub
+}
+```
+
+See `web/src/types/incident.ts` for the full TypeScript shape.
 
 ---
 
@@ -125,11 +161,11 @@ C6_Hackathon-Group-4/
 
 ### Prerequisites
 - Python 3.11+
-- An OpenRouter API key — sign up free at https://openrouter.ai, copy a key from https://openrouter.ai/keys
+- Node.js 20+
+- An OpenRouter API key — sign up free at https://openrouter.ai, copy from https://openrouter.ai/keys
 
-### One-time install
+### Backend (FastAPI + LangGraph)
 
-**macOS / Linux:**
 ```bash
 git clone https://github.com/joyson-fernandes/C6_Hackathon-Group-4.git
 cd C6_Hackathon-Group-4
@@ -139,53 +175,51 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 cp .env.example .env
-# open .env in your editor and paste your OPENROUTER_API_KEY
+# open .env and paste your OPENROUTER_API_KEY
 ```
 
-**Windows (PowerShell):**
-```powershell
-git clone https://github.com/joyson-fernandes/C6_Hackathon-Group-4.git
-cd C6_Hackathon-Group-4
+### Frontend (React + Vite)
 
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-
-copy .env.example .env
-# open .env in your editor and paste your OPENROUTER_API_KEY
+```bash
+cd web
+npm install
+# .env already points at http://localhost:8000 — edit if your backend runs elsewhere
 ```
 
 ---
 
-## Running the app
+## Running
 
-**macOS / Linux:**
+You need **two terminals** — backend and frontend.
+
+### Terminal 1: backend
+
 ```bash
 source .venv/bin/activate
-streamlit run app/main.py
+uvicorn app.server:app --reload --port 8000
 ```
 
-**Windows (PowerShell):**
-```powershell
-.venv\Scripts\Activate.ps1
-streamlit run app/main.py
-```
+- Health: http://localhost:8000/api/health
+- Docs (Swagger): http://localhost:8000/docs
 
-Opens at `http://localhost:8501`.
-
-### Demo mode (no Slack/JIRA needed)
-
-The notifier agents are stubbed out by default — they return placeholder values so the rest of the pipeline runs end-to-end without needing Slack or JIRA credentials. Pick this up in `agents/notifier.py` when ready.
-
-### Verify the graph builds
-
-Quick sanity check that all imports resolve and LangGraph wires up correctly:
+### Terminal 2: frontend
 
 ```bash
-python -c "from agents.graph import build_graph; g = build_graph(); print(g.get_graph().draw_mermaid())"
+cd web
+npm run dev
 ```
 
-Prints the agent DAG as Mermaid — handy for the demo.
+UI opens at http://localhost:3000.
+
+### Smoke test (CLI, no UI)
+
+```bash
+curl -s -X POST http://localhost:8000/api/analyze \
+  -H 'Content-Type: application/json' \
+  --data "$(jq -Rs '{logs: .}' < Sample_logs/payment_errors.log)" | jq '.incidents | length, .rag_confidence'
+```
+
+Should print a number (incident count) and one of `high|medium|low|none`.
 
 ### Running tests
 
@@ -202,60 +236,63 @@ Tests live under `tests/` and do not make any LLM calls.
 
 ## Demo logs
 
-Four pre-built fixtures in `Sample_logs/` — drag-and-drop into the upload area in the UI. Each one tells a story any developer can follow at a glance:
+Drop one of these into the UI's uploader (or `curl` against `/api/analyze`):
 
 | File | Story | Severity mix |
 |---|---|---|
-| `website_slow.log` | Pages load fast at first, then slow down → DB query timeouts → checkout starts returning 500s | 1 × high, 1-2 × warn |
-| `login_failures.log` | Brute-force attack from one IP → account lockout → password-reset emails fail (SMTP down) | 1 × critical, 2 × warn |
-| `payment_errors.log` | Card declines, gateway timeouts, Stripe rate-limited, webhook delivery failing, daily failure rate breach | 1 × critical, 2-3 × high |
-| `disk_full.log` | Backup fails → uploads fail → DB can't extend → service partially down | 1 × critical, 1-2 × high |
+| `Sample_logs/website_slow.log` | DB query timeouts → 500s on checkout | 1 × high, 1-2 × warn |
+| `Sample_logs/login_failures.log` | Brute-force attack → SMTP failures | 1 × critical, 2 × warn |
+| `Sample_logs/payment_errors.log` | Card declines, gateway timeouts, Stripe rate limits | 1 × critical, 2-3 × high |
+| `Sample_logs/disk_full.log` | Backup fails → uploads fail → DB partial down | 1 × critical, 1-2 × high |
 
-Use `payment_errors.log` for the headline demo — it produces 4-5 incidents across multiple severities.
+Use `payment_errors.log` for the headline demo — produces 4-5 incidents.
 
 ---
 
 ## How the agents work
 
-### 1. Classifier (`agents/classifier.py`)
-Single LLM call with **structured output** (Pydantic `IncidentList`). Prompt instructs the model to dedupe near-duplicates within a 5-minute window and use plain-English `error_type` labels.
+1. **Classifier** (`agents/classifier.py`) — single LLM call with structured output. Dedupes near-duplicates, uses plain-English `error_type` labels.
+2. **Severity router** (`agents/severity_router.py`) — pure-Python branching. Decides which downstream path to take per the aggregate severity of the run.
+3. **Remediation** (`agents/remediation.py`) — per-incident loop. For each one: BM25 retrieval over `knowledge_base/` → top-3 snippets fed into the prompt → structured `Fix(rationale, steps, risk, runbook_ref)`. Severity-based RAG policy enforces evidence requirements (`critical` = mandatory, `high` = strongly preferred, etc.).
+4. **Validator** (`agents/validator.py`) — critic agent. Returns `approved`, `needs_revision`, or `escalate` with a `quality_score` and `revision_instruction`. Weak remediations loop back to the remediation agent for up to 2 retries.
+5. **Cookbook synthesizer** (`agents/cookbook.py`) — one LLM call over all incidents + fixes → consolidated `Checklist`.
+6. **Slack notifier** (`agents/notifier.py::notify_slack`) — **stub**. Returns `"not-implemented"`. Implement with `slack-sdk`.
+7. **JIRA ticketer** (`agents/notifier.py::file_jira`) — **stub**. Returns `[]`. Implement with `atlassian-python-api`, filter to `severity ∈ {high, critical}`.
+8. **Final report builder** (`agents/graph.py::build_report`) — pure Python. Walks the state and renders one markdown string.
 
-### 2. Remediation (`agents/remediation.py`)
-Loops over each incident, calls the LLM with that incident + a plain-English runbook of common patterns. Returns `Fix(rationale, steps, risk, runbook_ref)`.
-Currently sequential — easy upgrade: parallelize with `asyncio.gather` or LangGraph `Send` API.
-
-### 3. Cookbook synthesizer (`agents/cookbook.py`)
-One LLM call over **all** incidents + their fixes → produces one consolidated `Checklist` ordered by impact.
-
-### 4. Slack notifier (`agents/notifier.py::notify_slack`) — TO BE IMPLEMENTED
-Stub returns `"not-implemented"`. Build it to post a parent message + one threaded reply per incident.
-
-### 5. JIRA ticketer (`agents/notifier.py::file_jira`) — TO BE IMPLEMENTED
-Stub returns `[]`. Build it to filter to `severity ∈ {high, critical}` and create one Bug per incident.
-
-### State flow
-A single `State: TypedDict` (in `models.py`) is threaded through all nodes by LangGraph. Each node returns a partial dict that gets merged.
+State flow: `agents/models.py::State` is a TypedDict threaded through every node. Each node returns a partial dict that LangGraph merges in.
 
 ---
 
 ## Environment variables
 
-See `.env.example`. Required:
+### Backend (`.env`)
 
 | Var | Purpose |
 |---|---|
-| `OPENROUTER_API_KEY` | LLM calls (required). Get one at https://openrouter.ai/keys |
-| `OPENROUTER_MODEL` | Default: `anthropic/claude-sonnet-4.5`. Any OpenRouter model id works (e.g. `openai/gpt-4o`, `google/gemini-2.5-pro`, `meta-llama/llama-3.3-70b-instruct`) |
-| `OPENROUTER_BASE_URL` | Default: `https://openrouter.ai/api/v1` (rarely change) |
-| `SLACK_BOT_TOKEN` | When you implement notifier.py: `xoxb-...` from a Slack app with `chat:write` |
-| `SLACK_CHANNEL` | `#hackathon-incidents` (bot must be invited) |
-| `JIRA_URL` | `https://your-org.atlassian.net` |
-| `JIRA_USER` | Your Atlassian account email |
-| `JIRA_TOKEN` | API token from id.atlassian.com |
-| `JIRA_PROJECT_KEY` | E.g. `OPS` |
-| `DEMO_MODE` | `true` skips real Slack/JIRA calls (once implemented) |
+| `OPENROUTER_API_KEY` | LLM calls (required) |
+| `OPENROUTER_MODEL` | Default `anthropic/claude-sonnet-4.5`. Any OpenRouter model id works |
+| `OPENROUTER_BASE_URL` | Default `https://openrouter.ai/api/v1` |
+| `CORS_ORIGINS` | Comma-separated allowlist for the FastAPI CORS middleware. Default covers `:3000` and `:5173` |
+| `SLACK_BOT_TOKEN` | When notifier is implemented |
+| `SLACK_CHANNEL` | When notifier is implemented |
+| `JIRA_URL` / `JIRA_USER` / `JIRA_TOKEN` / `JIRA_PROJECT_KEY` | When JIRA filer is implemented |
 
-**Never commit `.env`.** It's already in `.gitignore`.
+### Frontend (`web/.env`)
+
+| Var | Purpose |
+|---|---|
+| `VITE_API_URL` | Backend base URL. Default `http://localhost:8000` |
+
+**Never commit `.env`.** Already in `.gitignore`.
+
+---
+
+## Adding runbooks
+
+Drop new `.md` files into `knowledge_base/`. Each `## Header` becomes a separately-retrievable BM25 chunk. They're indexed at server startup — restart `uvicorn` to pick up new files.
+
+Future upgrade path: swap BM25 for semantic embeddings if the KB grows past ~50 docs (replace `_build_index()` in `agents/rag.py` with a LangChain `VectorStore`).
 
 ---
 
@@ -267,7 +304,7 @@ We're working as a team in a tight time window — keep it simple.
 **Pull before you start. Push when you stop.**
 
 ```bash
-git pull --rebase    # before any new work
+git pull --rebase
 # ... make changes ...
 git add -A && git commit -m "what you did" && git push
 ```
@@ -281,94 +318,35 @@ git add -A && git commit -m "what you did" && git push
 | Risky change (refactor, swap a library) | Branch always |
 | Fixing a typo / tweaking a prompt | Straight to `main` |
 
-For a hackathon with a small team, branches add friction. Use them only when needed.
-
 ### Branch workflow (when you do need one)
 
-A branch is a parallel timeline. You commit there freely without breaking `main`. When done, open a PR.
-
-```
-main:     A───B───C─────────────────M───
-                   \               /
-your branch:        D───E───F─────/
-                                  ↑
-                             PR merge
-```
-
-Steps:
 ```bash
-git checkout main
-git pull --rebase
-git checkout -b yourname/short-description    # e.g. joyson/classifier-prompt
-
+git checkout main && git pull --rebase
+git checkout -b yourname/short-description
 # work, commit, push
-git add -A
-git commit -m "tighten classifier prompt"
 git push -u origin yourname/short-description
-
-gh pr create --fill                            # opens PR in browser
-# teammate reviews, clicks Merge
+gh pr create --fill
 ```
 
-After merge, clean up:
+After merge:
 ```bash
-git checkout main
-git pull
+git checkout main && git pull
 git branch -d yourname/short-description
-```
-
-### Resolving merge conflicts
-
-If `git pull --rebase` shouts CONFLICT:
-
-```bash
-# open the file, find:
-#   <<<<<<< HEAD
-#   your version
-#   =======
-#   their version
-#   >>>>>>> their-commit
-# delete the markers, keep the right combination, save
-git add <file>
-git rebase --continue
-git push
-```
-
-### Useful commands
-
-```bash
-git status                    # what changed
-git branch                    # list local branches
-git log --oneline -10         # recent commits
-git diff                      # unstaged changes
-gh pr list                    # open PRs on GitHub
-gh pr checkout <number>       # test a teammate's PR locally
 ```
 
 ---
 
 ## Troubleshooting
 
-**`OPENROUTER_API_KEY is not set`** — copy `.env.example` to `.env` and fill in your key. Restart Streamlit.
+**`OPENROUTER_API_KEY is not set`** — copy `.env.example` to `.env` and fill in your key. Restart `uvicorn`.
 
-**`structured_output` errors / model returns junk** — not every OpenRouter model supports JSON mode + tool calling. Stick to the defaults (`anthropic/claude-sonnet-4.5`, `openai/gpt-4o`, `google/gemini-2.5-pro`). Avoid the smaller open-weight models for the structured-output nodes.
+**Frontend can't reach backend (CORS / network errors)** — check that `uvicorn` is running on `:8000` and `web/.env` has `VITE_API_URL=http://localhost:8000`. If you're running the frontend on a non-default port, add it to `CORS_ORIGINS` in the backend `.env`.
 
-**Classifier returns 0 incidents** — your log format may be too unusual. Try one of the bundled `Sample_logs/` first; if those work, paste a snippet of your real logs and tweak the prompt in `agents/classifier.py`.
+**`structured_output` errors / model returns junk** — not every OpenRouter model supports JSON mode + tool calling. Stick to the defaults (`anthropic/claude-sonnet-4.5`, `openai/gpt-4o`, `google/gemini-2.5-pro`). Avoid smaller open-weight models for the structured-output nodes.
 
-**LangGraph mermaid render fails** — non-blocking; the rest of the pipeline still works. Needs internet to reach `mermaid.ink`.
+**Classifier returns 0 incidents** — your log format may be too unusual. Try a bundled `Sample_logs/` first; if those work, paste a snippet of your real logs and tweak the prompt in `agents/classifier.py`.
 
-**`UnicodeEncodeError` on Analyze** — make sure `agents/config.py` headers are ASCII-only (no em-dashes).
-
----
-
-## Tech stack
-
-- **LangGraph** 0.2+ — agent orchestration
-- **langchain-openai** — pointed at OpenRouter (OpenAI-compatible API)
-- **OpenRouter** — single API key, swap models freely (Claude, GPT, Gemini, Llama)
-- **Pydantic** v2 — typed state + structured LLM output
-- **Streamlit** — UI
-- Default model: `anthropic/claude-sonnet-4.5` (override via `OPENROUTER_MODEL`)
+**`UnicodeEncodeError` on analyze** — make sure `agents/config.py` headers are ASCII-only (no em-dashes).
 
 ---
 
