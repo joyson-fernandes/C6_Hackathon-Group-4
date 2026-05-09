@@ -1,20 +1,33 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# AI SRE Orchestrator
 
-# Run and deploy your AI Studio app
+An autonomous AI-powered incident response platform designed to analyze system logs, detect root causes, and orchestrate remediation across distributed infrastructure.
 
-This contains everything you need to run your app locally.
+## 🤖 AI Analysis Architecture
 
-View your app in AI Studio: https://ai.studio/apps/efac534c-a4ba-4f3b-8338-4e20983baca6
+The core intelligence of this platform is centralized in the `src/api/gemini.ts` module. This architecture ensures a consolidated location for managing LLM interactions, prompts, and security guardrails.
 
-## Run Locally
+### Incident Analysis Flow
+1. **Log Ingestion**: Raw text logs are provided via the UI or API.
+2. **Analysis Request**: The frontend triggers the `useAnalysis` hook, which calls the Gemini API service.
+3. **Structured Synthesis**: The AI processes the telemetry data through a specialized SRE persona.
+4. **Actionable Output**: The system returns a strictly structured JSON payload containing severity, root cause, and multi-step remediation playbooks.
 
-**Prerequisites:**  Node.js
+### 🛡️ Core Guardrails
+To ensure production-grade reliability and security, we have implemented dual-layer guardrails within `src/api/gemini.ts`:
 
+*   **Instructional (The Persona Boundary)**:
+    A robust `systemInstruction` forces the LLM to act exclusively as an "Expert SRE and DevOps Incident Analyst." It is explicitly instructed to ignore non-incident queries and only return data relevant to the SRE domain.
+*   **Structural (Schema Integrity)**:
+    We utilize a `responseSchema` (JSON schema) in the Gemini API configuration. This prevents "hallucinations" in data structure and ensures that every response strictly adheres to our `AnalysisResult` TypeScript interface, protecting the UI from unexpected data shapes.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## 🛠️ Tech Stack
+- **AI Engine**: Google Gemini (via `@google/genai`)
+- **Frontend**: React 18 with Vite
+- **Styling**: Tailwind CSS
+- **Animations**: Framer Motion (motion/react)
+- **Icons**: Lucide React
+
+## 🚀 Getting Started
+1. Set your `GEMINI_API_KEY` in the environment.
+2. Run `npm install`.
+3. Run `npm run dev` to start the local simulation.
