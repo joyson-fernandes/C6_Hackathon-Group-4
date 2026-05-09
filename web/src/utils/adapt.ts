@@ -1,5 +1,6 @@
 import {
   AgentNode,
+  AgentStatus,
   AnalysisReport,
   AnalysisResult,
   AnalysisRun,
@@ -44,7 +45,7 @@ export function toIncident(
     source: run.fileName ?? 'log upload',
     serviceName: inc.service,
     incidentType: inc.error_type,
-    assignedWorkflow: fix?.runbook_ref ?? 'auto-classified',
+    assignedWorkflow: run.report.routing_path ?? fix?.runbook_ref ?? 'auto-classified',
     shortDescription: inc.summary,
     assignedTeam: inc.service,
     slackChannel: run.report.slack_thread_ts ?? undefined,
@@ -72,60 +73,118 @@ export function toAnalysisResult(
     serviceAffected: inc.service,
     recommendedEscalation: inc.severity === 'critical' ? 'L3' :
                            inc.severity === 'high' ? 'L2' : 'L1',
-    validationSteps: undefined,
-    rollbackPlan: fix?.risk === 'high' ? [`Risk flagged ${fix.risk} — verify rollback path before applying.`] : undefined,
+    validationSteps: report.validation_reason ? [report.validation_reason] : undefined,
+    rollbackPlan: fix?.risk === 'high'
+      ? [`Risk flagged ${fix.risk} — verify rollback path before applying.`]
+      : undefined,
     estimatedTime: undefined,
   };
 }
 
-export function toWorkflowExecution(run: AnalysisRun, incidentId: string): WorkflowExecution {
-  const r = run.report;
-  const completed = (output: string): AgentNode['status'] => 'completed';
+interface NodeSpec {
+  id: string;
+  name: string;
+  description: string;
+  output: (r: AnalysisReport) => string | undefined;
+}
 
-  const nodes: AgentNode[] = [
-    {
-      id: 'classify',
-      name: 'Classifier',
-      description: 'Reads raw logs and extracts typed incidents.',
-      status: completed(''),
-      output: `Extracted ${r.incidents.length} incident${r.incidents.length === 1 ? '' : 's'}.`,
-    },
-    {
-      id: 'remediate',
-      name: 'Remediation',
-      description: 'Generates per-incident fix grounded in runbook KB.',
-      status: completed(''),
-      output: `Generated ${Object.keys(r.remediations).length} fix${Object.keys(r.remediations).length === 1 ? '' : 'es'}. RAG confidence: ${r.rag_confidence}.`,
-    },
-    {
-      id: 'cookbook',
-      name: 'Cookbook',
-      description: 'Synthesizes a consolidated runbook checklist.',
-      status: completed(''),
-      output: r.cookbook ? `Compiled "${r.cookbook.title}" with ${r.cookbook.items.length} items.` : 'No checklist produced.',
-    },
-    {
-      id: 'slack',
-      name: 'Slack Notifier',
-      description: 'Posts threaded incident messages to Slack.',
-      status: r.slack_thread_ts && r.slack_thread_ts !== 'not-implemented' ? 'completed' : 'pending',
-      output: r.slack_thread_ts === 'not-implemented' ? 'Stub — implement notify_slack to enable.' : (r.slack_thread_ts ?? undefined),
-    },
-    {
-      id: 'jira',
-      name: 'JIRA Ticketer',
-      description: 'Files JIRA tickets for high/critical incidents.',
-      status: r.jira_keys.length > 0 ? 'completed' : 'pending',
-      output: r.jira_keys.length > 0 ? `Filed: ${r.jira_keys.join(', ')}` : 'Stub — implement file_jira to enable.',
-    },
-    {
-      id: 'report',
-      name: 'Report Builder',
-      description: 'Renders the final markdown report.',
-      status: r.report_md ? 'completed' : 'pending',
-      output: r.report_md ? `Rendered ${r.report_md.length} chars of markdown.` : undefined,
-    },
-  ];
+const NODE_SPECS: NodeSpec[] = [
+  {
+    id: 'classify',
+    name: 'Classifier',
+    description: 'Reads raw logs and extracts typed incidents.',
+    output: r => `Extracted ${r.incidents.length} incident${r.incidents.length === 1 ? '' : 's'}.`,
+  },
+  {
+    id: 'severity_router',
+    name: 'Severity Router',
+    description: 'Pure-Python router — picks the downstream branch from aggregate severity.',
+    output: r => r.severity ? `Severity: ${r.severity} → ${r.routing_path ?? 'n/a'}` : undefined,
+  },
+  {
+    id: 'deep_analysis',
+    name: 'Deep Analysis',
+    description: 'Extra correlation/dependency mapping for critical and high-severity runs.',
+    output: r => r.flags.requires_deep_analysis ? 'Deep analysis triggered.' : 'Skipped.',
+  },
+  {
+    id: 'rag_retriever',
+    name: 'RAG Retriever',
+    description: 'Fetches relevant runbook snippets via BM25 over knowledge_base/.',
+    output: r =>
+      r.flags.requires_rag
+        ? `Retrieved ${r.rag_snippet_count} snippet${r.rag_snippet_count === 1 ? '' : 's'} (confidence: ${r.rag_confidence}).`
+        : 'Skipped.',
+  },
+  {
+    id: 'remediate',
+    name: 'Remediation',
+    description: 'Generates a Fix per incident, grounded in retrieved runbooks.',
+    output: r => `Generated ${Object.keys(r.remediations).length} fix${Object.keys(r.remediations).length === 1 ? '' : 'es'}.`,
+  },
+  {
+    id: 'validator',
+    name: 'Validator / Critic',
+    description: 'Scores remediations and gates retries vs escalation.',
+    output: r =>
+      r.validator_status
+        ? `${r.validator_status} · score ${r.quality_score ?? '—'}/10 · retries ${r.retry_count}`
+        : undefined,
+  },
+  {
+    id: 'cookbook',
+    name: 'Cookbook',
+    description: 'Synthesizes one consolidated runbook checklist.',
+    output: r => r.cookbook ? `${r.cookbook.title} — ${r.cookbook.items.length} items.` : undefined,
+  },
+  {
+    id: 'summary_report',
+    name: 'Summary Report',
+    description: 'Lightweight branch for info-only logs (skips remediation).',
+    output: r => r.severity === 'info' ? 'Info-only path used.' : 'Bypassed.',
+  },
+  {
+    id: 'human_approval',
+    name: 'Human Approval',
+    description: 'Gate for critical/escalated incidents.',
+    output: r => r.human_approval_status ? `Status: ${r.human_approval_status}` : undefined,
+  },
+  {
+    id: 'slack',
+    name: 'Slack Notifier',
+    description: 'Threaded message per incident (stub).',
+    output: r =>
+      r.slack_thread_ts && r.slack_thread_ts !== 'not-implemented'
+        ? r.slack_thread_ts
+        : 'Stub — implement notify_slack to enable.',
+  },
+  {
+    id: 'jira',
+    name: 'JIRA Ticketer',
+    description: 'Files tickets for high/critical incidents (stub).',
+    output: r => r.jira_keys.length > 0 ? `Filed: ${r.jira_keys.join(', ')}` : 'Stub — implement file_jira to enable.',
+  },
+  {
+    id: 'report',
+    name: 'Report Builder',
+    description: 'Renders the consolidated markdown report.',
+    output: r => r.report_md ? `Rendered ${r.report_md.length} chars.` : undefined,
+  },
+];
+
+function nodeStatus(spec: NodeSpec, visited: Set<string>): AgentStatus {
+  return visited.has(spec.id) ? 'completed' : 'pending';
+}
+
+export function toWorkflowExecution(run: AnalysisRun, incidentId: string): WorkflowExecution {
+  const visited = new Set(run.report.execution_path);
+  const nodes: AgentNode[] = NODE_SPECS.map(spec => ({
+    id: spec.id,
+    name: spec.name,
+    description: spec.description,
+    status: nodeStatus(spec, visited),
+    output: spec.output(run.report) ?? undefined,
+  }));
 
   return {
     id: run.runId,
@@ -189,4 +248,32 @@ export function toIntegrations(run: AnalysisRun | null): IntegrationStatus[] {
       },
     },
   ];
+}
+
+// ---- Run-level summary used on Workflow + Dashboard --------------------
+
+export interface RunSummary {
+  severity: string;
+  routingPath: string;
+  routingReason: string;
+  validatorStatus: string;
+  qualityScore: string;
+  retryCount: number;
+  humanApproval: string;
+  executionPath: string[];
+  flags: AnalysisReport['flags'];
+}
+
+export function summarizeRun(report: AnalysisReport): RunSummary {
+  return {
+    severity: report.severity ?? '—',
+    routingPath: report.routing_path ?? '—',
+    routingReason: report.routing_reason ?? 'No routing decision recorded.',
+    validatorStatus: report.validator_status ?? '—',
+    qualityScore: report.quality_score != null ? `${report.quality_score}/10` : '—',
+    retryCount: report.retry_count,
+    humanApproval: report.human_approval_status ?? '—',
+    executionPath: report.execution_path,
+    flags: report.flags,
+  };
 }

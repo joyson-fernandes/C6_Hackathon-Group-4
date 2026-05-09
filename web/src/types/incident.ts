@@ -62,6 +62,9 @@ export interface AnalysisResult {
 
 export type BackendSeverity = 'info' | 'warn' | 'high' | 'critical';
 export type RagConfidence = 'high' | 'medium' | 'low' | 'none';
+export type RunSeverity = 'info' | 'low' | 'medium' | 'high' | 'critical';
+export type ValidatorStatus = 'approved' | 'needs_revision' | 'escalate';
+export type HumanApprovalStatus = 'required' | 'approved' | 'skipped';
 
 export interface BackendIncident {
   id: string;
@@ -96,14 +99,42 @@ export interface RagComplianceEntry {
   runbook_ref?: string | null;
 }
 
+export interface RouterFlags {
+  requires_deep_analysis: boolean;
+  requires_rag: boolean;
+  requires_human_approval: boolean;
+  requires_ticket: boolean;
+  requires_notification: boolean;
+}
+
 export interface AnalysisReport {
   incidents: BackendIncident[];
   remediations: Record<string, BackendFix>;
   cookbook: BackendChecklist | null;
   report_md: string;
+
   rag_sources: string[];
   rag_confidence: RagConfidence;
   rag_compliance: RagComplianceEntry[];
+  rag_snippet_count: number;
+
+  severity: RunSeverity | null;
+  incident_type: string | null;
+  routing_path: string | null;
+  routing_reason: string | null;
+  flags: RouterFlags;
+
+  validator_status: ValidatorStatus | null;
+  quality_score: number | null;
+  issues_found: string[];
+  revision_instruction: string;
+  escalation_required: boolean;
+  validation_reason: string | null;
+  retry_count: number;
+
+  human_approval_status: HumanApprovalStatus | null;
+  execution_path: string[];
+
   slack_thread_ts: string | null;
   jira_keys: string[];
 }

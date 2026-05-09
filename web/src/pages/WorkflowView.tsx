@@ -1,10 +1,25 @@
 import { motion } from 'motion/react';
-import { Zap, Terminal, Activity, Inbox } from 'lucide-react';
+import { Zap, Terminal, Activity, Inbox, GitBranch, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { useAnalysisStore } from '../store/AnalysisStore';
-import { toWorkflowExecution } from '../utils/adapt';
+import { summarizeRun, toWorkflowExecution } from '../utils/adapt';
 import { cn } from '../utils/cn';
 import { Card } from '../components/ui/Card';
 import { AgentWorkflowGraph } from '../components/AgentWorkflowGraph';
+import { ValidatorStatus } from '../types';
+
+const SEVERITY_STYLES: Record<string, string> = {
+  critical: 'bg-red-500/10 text-red-400 border-red-500/30',
+  high: 'bg-orange-500/10 text-orange-400 border-orange-500/30',
+  medium: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
+  low: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
+  info: 'bg-slate-500/10 text-slate-400 border-slate-500/30',
+};
+
+const VALIDATOR_STYLES: Record<ValidatorStatus, string> = {
+  approved: 'bg-green-500/10 text-green-400 border-green-500/30',
+  needs_revision: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
+  escalate: 'bg-red-500/10 text-red-400 border-red-500/30',
+};
 
 export function WorkflowView() {
   const { current } = useAnalysisStore();
@@ -23,34 +38,88 @@ export function WorkflowView() {
 
   const incidentId = current.report.incidents[0].id;
   const workflow = toWorkflowExecution(current, incidentId);
+  const summary = summarizeRun(current.report);
+  const flags = summary.flags;
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 bg-slate-900/40 p-6 border border-slate-800 rounded-2xl">
         <div>
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
             <span className="text-[10px] font-mono font-bold text-blue-500 uppercase tracking-[0.2em] bg-blue-500/10 px-2 py-0.5 rounded">LangGraph Pipeline</span>
             <span className="text-slate-600">/</span>
             <span className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-[0.2em]">{workflow.id}</span>
           </div>
           <h1 className="text-3xl font-black text-white tracking-tighter">Multi-Agent Workflow</h1>
-          <p className="text-slate-400 mt-1 max-w-xl text-sm">Last completed run for {workflow.incidentId}.</p>
+          <p className="text-slate-400 mt-1 max-w-xl text-sm">{summary.routingReason}</p>
         </div>
 
-        <div className="flex gap-4">
-          <div className="text-right">
-            <div className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-widest">Source File</div>
-            <div className="text-sm font-bold text-white flex items-center justify-end gap-2">
-              <div className="w-2 h-2 rounded-full bg-blue-500" />
-              {current.fileName ?? 'pasted logs'}
-            </div>
-          </div>
-          <div className="w-px h-10 bg-slate-800 self-center" />
-          <div className="text-right">
-            <div className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-widest">Incidents</div>
-            <div className="text-lg font-bold text-white">{current.report.incidents.length}</div>
-          </div>
+        <div className="flex flex-wrap gap-3">
+          <SummaryBadge label="Severity" value={summary.severity} className={SEVERITY_STYLES[summary.severity] ?? SEVERITY_STYLES.info} />
+          <SummaryBadge
+            label="Validator"
+            value={summary.validatorStatus}
+            className={current.report.validator_status ? VALIDATOR_STYLES[current.report.validator_status] : 'bg-slate-700/30 text-slate-400 border-slate-700'}
+          />
+          <SummaryBadge label="Quality" value={summary.qualityScore} className="bg-blue-500/10 text-blue-400 border-blue-500/30" />
+          <SummaryBadge label="Retries" value={String(summary.retryCount)} className="bg-slate-700/30 text-slate-400 border-slate-700" />
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card title="Routing Decision" icon={<GitBranch className="w-4 h-4 text-blue-500" />}>
+          <dl className="text-xs space-y-3 mt-2">
+            <Row label="Path" value={summary.routingPath} mono />
+            <Row label="Incident type" value={current.report.incident_type ?? '—'} mono />
+            <Row label="RAG snippets" value={String(current.report.rag_snippet_count)} />
+          </dl>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {Object.entries(flags).map(([k, v]) => (
+              <span key={k} className={cn(
+                'px-2 py-0.5 text-[10px] font-mono rounded border',
+                v ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' : 'bg-slate-800 text-slate-500 border-slate-700'
+              )}>
+                {k.replace('requires_', '')}{v ? ' ✓' : ''}
+              </span>
+            ))}
+          </div>
+        </Card>
+
+        <Card title="Validator Verdict" icon={<ShieldCheck className="w-4 h-4 text-blue-500" />}>
+          <dl className="text-xs space-y-3 mt-2">
+            <Row label="Status" value={summary.validatorStatus} />
+            <Row label="Quality score" value={summary.qualityScore} />
+            <Row label="Retry count" value={String(summary.retryCount)} />
+            <Row label="Human approval" value={summary.humanApproval} />
+            <Row label="Escalation" value={current.report.escalation_required ? 'required' : 'not required'} />
+          </dl>
+          {current.report.validation_reason && (
+            <p className="mt-4 text-xs text-slate-400 italic border-l-2 border-slate-800 pl-3">
+              {current.report.validation_reason}
+            </p>
+          )}
+        </Card>
+
+        <Card title="Issues Found" icon={<AlertTriangle className="w-4 h-4 text-yellow-500" />}>
+          {current.report.issues_found.length === 0 ? (
+            <p className="text-xs text-slate-500 italic mt-2">No issues raised by the validator.</p>
+          ) : (
+            <ul className="mt-2 space-y-2">
+              {current.report.issues_found.map((iss, i) => (
+                <li key={i} className="text-xs text-slate-300 leading-relaxed flex gap-2">
+                  <span className="text-yellow-500 shrink-0">•</span>
+                  <span>{iss}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {current.report.revision_instruction && (
+            <div className="mt-4 p-3 bg-slate-900 border border-slate-800 rounded text-xs text-slate-400">
+              <p className="text-[10px] font-mono text-slate-500 uppercase mb-1">Revision instruction</p>
+              <p>{current.report.revision_instruction}</p>
+            </div>
+          )}
+        </Card>
       </div>
 
       <Card className="p-0 overflow-hidden bg-slate-950/50 border-slate-800 shadow-2xl">
@@ -61,7 +130,7 @@ export function WorkflowView() {
             </div>
             <div>
               <span className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-widest block">Agent DAG</span>
-              <span className="text-xs font-bold text-slate-300">classify → remediate → cookbook → slack/jira → report</span>
+              <span className="text-xs font-bold text-slate-300">classify → severity_router → … → report</span>
             </div>
           </div>
         </div>
@@ -70,32 +139,19 @@ export function WorkflowView() {
         </div>
       </Card>
 
-      <Card className="p-0 overflow-hidden border-slate-800">
-        <div className="p-4 bg-slate-900/50 border-b border-slate-800 flex items-center gap-2">
-          <Terminal className="text-blue-500 w-4 h-4" />
-          <span className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-widest">Agent Audit Log</span>
-        </div>
-        <div className="p-0">
-          {workflow.nodes.map((node) => (
-            <div key={node.id} className="p-4 border-b border-slate-800/50 hover:bg-slate-900/20 transition-colors flex gap-4">
-              <div className="text-[10px] font-mono text-slate-600 w-12 pt-1">—</div>
-              <div className="flex-1">
-                <div className="flex justify-between items-center mb-1">
-                  <h5 className="text-xs font-bold text-white uppercase tracking-tighter">{node.name}</h5>
-                  <span className={cn(
-                    'text-[9px] font-black px-1.5 py-0.5 rounded uppercase border',
-                    node.status === 'completed' ? 'bg-green-500/10 border-green-500/20 text-green-500' :
-                      node.status === 'running' ? 'bg-blue-500/10 border-blue-500/20 text-blue-500' :
-                        'bg-slate-700/20 border-slate-700/40 text-slate-500'
-                  )}>
-                    {node.status}
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-500 font-mono italic">{node.output ?? node.description}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+      <Card title="Execution Trace" icon={<Terminal className="w-4 h-4 text-blue-500" />}>
+        {summary.executionPath.length === 0 ? (
+          <p className="text-xs text-slate-500 italic mt-2">No trace recorded.</p>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2 mt-2 font-mono text-xs">
+            {summary.executionPath.map((step, i) => (
+              <span key={`${step}-${i}`} className="flex items-center gap-2">
+                <span className="px-2 py-1 rounded border border-slate-800 bg-slate-900 text-slate-200">{step}</span>
+                {i < summary.executionPath.length - 1 && <span className="text-slate-600">→</span>}
+              </span>
+            ))}
+          </div>
+        )}
       </Card>
 
       {current.report.report_md && (
@@ -104,5 +160,23 @@ export function WorkflowView() {
         </Card>
       )}
     </motion.div>
+  );
+}
+
+function SummaryBadge({ label, value, className }: { label: string; value: string; className: string }) {
+  return (
+    <div className={cn('px-3 py-2 rounded-lg border', className)}>
+      <div className="text-[9px] font-mono uppercase tracking-widest opacity-70">{label}</div>
+      <div className="text-sm font-bold mt-0.5">{value}</div>
+    </div>
+  );
+}
+
+function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex justify-between gap-4">
+      <dt className="text-slate-500">{label}</dt>
+      <dd className={cn('text-slate-200 text-right break-all', mono && 'font-mono text-xs')}>{value}</dd>
+    </div>
   );
 }

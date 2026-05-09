@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useIncident, useLiveWorkflow } from '../hooks/useIncidents';
 import { useAnalysis } from '../hooks/useAnalysis';
+import { useAnalysisStore } from '../store/AnalysisStore';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { SeverityBadge } from '../components/ui/Badge';
@@ -36,6 +37,9 @@ export function IncidentDetails() {
   const { id } = useParams();
   const { incident } = useIncident(id!);
   const { workflow } = useLiveWorkflow(id!);
+  const { runs } = useAnalysisStore();
+  const run = runs.find(r => r.report.incidents.some(i => i.id === id));
+  const report = run?.report;
   const { analysis, analyze, isAnalyzing, error: analysisError } = useAnalysis({
     asAnalysisResult: true,
     incidentId: id,
@@ -176,17 +180,43 @@ export function IncidentDetails() {
               {incident.jiraTicket && <Row label="JIRA" value={incident.jiraTicket} />}
             </div>
           </Card>
+
+          {report && (
+            <Card title="Pipeline" className="p-5">
+              <div className="space-y-4 text-xs font-medium">
+                <Row label="Run severity" value={report.severity ?? '—'} />
+                <Row label="Routing path" value={report.routing_path ?? '—'} mono />
+                <Row label="Validator" value={report.validator_status ?? '—'} />
+                <Row label="Quality" value={report.quality_score != null ? `${report.quality_score}/10` : '—'} />
+                <Row label="Retries" value={String(report.retry_count)} />
+                {report.human_approval_status && (
+                  <Row label="Human approval" value={report.human_approval_status} />
+                )}
+                {report.escalation_required && (
+                  <Row label="Escalation" value="required" />
+                )}
+              </div>
+              {report.execution_path.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-slate-800">
+                  <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-2">Execution path</p>
+                  <p className="text-[10px] font-mono text-slate-400 break-all leading-relaxed">
+                    {report.execution_path.join(' → ')}
+                  </p>
+                </div>
+              )}
+            </Card>
+          )}
         </div>
       </div>
     </motion.div>
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex justify-between gap-4">
       <span className="text-slate-500 uppercase">{label}</span>
-      <span className="text-slate-200 text-right break-all">{value}</span>
+      <span className={cn('text-slate-200 text-right break-all', mono && 'font-mono text-[11px]')}>{value}</span>
     </div>
   );
 }

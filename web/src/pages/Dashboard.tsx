@@ -7,12 +7,15 @@ import { SeverityBadge } from '../components/ui/Badge';
 import { useIncidents } from '../hooks/useIncidents';
 import { LogUploader } from '../components/LogUploader';
 import { useAnalysis } from '../hooks/useAnalysis';
+import { useAnalysisStore } from '../store/AnalysisStore';
 
 export function Dashboard() {
   const { incidents } = useIncidents();
+  const { current } = useAnalysisStore();
   const { analyze, isAnalyzing, error } = useAnalysis();
   const navigate = useNavigate();
   const [showUploader, setShowUploader] = useState(incidents.length === 0);
+  const visitedNodes = new Set(current?.report.execution_path ?? []);
 
   const handleAnalysis = async (logs: string, fileName?: string) => {
     const report = await analyze(logs, fileName);
@@ -107,16 +110,47 @@ export function Dashboard() {
         </div>
 
         <div className="space-y-6">
+          {current && (
+            <Card title="Latest Run">
+              <div className="space-y-3 text-xs">
+                <PipelineRow label="Severity" value={current.report.severity ?? '—'} />
+                <PipelineRow label="Routing path" value={current.report.routing_path ?? '—'} mono />
+                <PipelineRow label="Validator" value={current.report.validator_status ?? '—'} />
+                <PipelineRow label="Quality" value={current.report.quality_score != null ? `${current.report.quality_score}/10` : '—'} />
+                <PipelineRow label="Retries" value={String(current.report.retry_count)} />
+                <PipelineRow label="RAG snippets" value={String(current.report.rag_snippet_count)} />
+              </div>
+            </Card>
+          )}
+
           <Card title="Pipeline Agents">
-            <div className="space-y-4">
-              {['Classifier', 'Remediation', 'Cookbook', 'Slack', 'JIRA', 'Report'].map(n => (
-                <div key={n} className="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg border border-slate-800">
-                  <div className="text-sm font-bold text-white">{n}</div>
-                  <div className={`px-2 py-0.5 text-[10px] font-bold rounded ${incidents.length ? 'bg-green-500/10 text-green-500' : 'bg-slate-700/30 text-slate-500'}`}>
-                    {incidents.length ? 'READY' : 'IDLE'}
+            <div className="space-y-2">
+              {[
+                { id: 'classify', label: 'Classifier' },
+                { id: 'severity_router', label: 'Severity Router' },
+                { id: 'deep_analysis', label: 'Deep Analysis' },
+                { id: 'rag_retriever', label: 'RAG Retriever' },
+                { id: 'remediate', label: 'Remediation' },
+                { id: 'validator', label: 'Validator' },
+                { id: 'cookbook', label: 'Cookbook' },
+                { id: 'human_approval', label: 'Human Approval' },
+                { id: 'slack', label: 'Slack' },
+                { id: 'jira', label: 'JIRA' },
+                { id: 'report', label: 'Report' },
+              ].map(n => {
+                const visited = visitedNodes.has(n.id);
+                return (
+                  <div key={n.id} className="flex items-center justify-between p-2.5 bg-slate-900/50 rounded-lg border border-slate-800">
+                    <div className="text-xs font-bold text-white">{n.label}</div>
+                    <div className={`px-2 py-0.5 text-[10px] font-bold rounded ${
+                      visited ? 'bg-green-500/10 text-green-500' :
+                      current ? 'bg-slate-700/30 text-slate-500' : 'bg-slate-700/30 text-slate-500'
+                    }`}>
+                      {visited ? 'RAN' : current ? 'SKIPPED' : 'IDLE'}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </Card>
         </div>
@@ -130,6 +164,15 @@ interface StatCardProps {
   value: string;
   icon: React.ComponentType<{ className?: string }>;
   color: string;
+}
+
+function PipelineRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex justify-between gap-4">
+      <span className="text-slate-500 uppercase">{label}</span>
+      <span className={`text-slate-200 text-right break-all ${mono ? 'font-mono text-[11px]' : ''}`}>{value}</span>
+    </div>
+  );
 }
 
 function StatCard({ label, value, icon: Icon, color }: StatCardProps) {
