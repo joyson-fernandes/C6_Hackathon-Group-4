@@ -16,6 +16,6 @@ pytest>=8.0.0
 jaraco.context>=6.1.0
 wheel>=0.46.2
 
-# When you implement agents/notifier.py, uncomment what you need:
+# Optional future real Slack/JIRA clients. Current demo mode uses mock outputs.
 # slack-sdk>=3.33.0
 # atlassian-python-api>=3.41.0

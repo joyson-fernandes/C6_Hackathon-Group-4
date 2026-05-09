@@ -2,7 +2,7 @@
 
 **Multi-Agent DevOps Incident Analysis Suite**
 
-Upload ops logs to a React UI → LangGraph agents on a FastAPI backend analyze them → structured incidents, RAG-grounded remediations, validator critic loop, optional human approval, Slack/JIRA fan-out, and a final markdown report.
+Upload ops logs to a React UI → LangGraph agents on a FastAPI backend analyze them → structured incidents, RAG-grounded remediations, validator critic loop, optional human approval, demo-safe Slack/JIRA-style action outputs, and a final markdown report.
 
 ---
 
@@ -27,8 +27,8 @@ You upload a log file. The system:
 3. **Recommends a fix** for each incident with rationale, ordered steps, and risk level (RAG-grounded against the runbook KB).
 4. **Validates the remediation** with a critic agent that returns `approved`, `needs_revision`, or `escalate`. Weak remediations loop back for up to **2 retries**; critical incidents requiring escalation route through a human approval gate.
 5. **Synthesizes a runbook** — one consolidated checklist across all incidents.
-6. **Posts to Slack** as a threaded message *(demo-safe mock tool)*.
-7. **Files JIRA tickets** for `high` / `critical` severity only *(demo-safe mock tool)*.
+6. **Generates demo-safe Slack-style notification output** as a threaded message mock.
+7. **Generates demo-safe JIRA-style ticket output** for `high` / `critical` severity only.
 8. **Renders a final report** in Markdown.
 
 All orchestrated as a LangGraph DAG with conditional routing. Surfaced through a React UI (Dashboard, Incidents, Workflow, Integrations, History, Settings).
@@ -63,8 +63,8 @@ flowchart TD
     I -->|Approved| J[Cookbook Synthesizer Agent]
     I -->|Escalation Required| K[Human Approval Node]
     J --> K
-    K --> L[Slack Notification Tool]
-    L --> M[JIRA Ticket Tool]
+    K --> L[Slack-Style Notification Mock]
+    L --> M[JIRA-Style Ticket Mock]
     M --> N[Final Incident Report]
     G --> N
     N --> O[React UI Output]
@@ -72,8 +72,8 @@ flowchart TD
 
 The workflow uses LangGraph conditional routing. Critical and high-severity
 incidents are routed through deep analysis, RAG-backed remediation, validator
-review, and human approval before Slack notifications and JIRA ticket
-creation. Medium incidents use RAG before remediation, low incidents go
+review, and human approval before demo-safe Slack-style notification output
+and JIRA-style ticket output. Medium incidents use RAG before remediation, low incidents go
 straight to remediation, and info-only logs follow a lightweight summary
 path that bypasses remediation entirely. The validator agent creates a
 feedback loop by sending weak remediation outputs back for revision (capped
@@ -277,6 +277,10 @@ the full pipeline against each log fixture in `Sample_logs/`:
 See [sample_outputs/README.md](sample_outputs/README.md) for regeneration
 instructions.
 
+### Demo Script
+
+See [docs/demo_script.md](docs/demo_script.md) for the 5-minute walkthrough script.
+
 ---
 
 ## Evaluation Cases
@@ -341,7 +345,7 @@ State flow: `agents/models.py::State` is a TypedDict threaded through every node
 | `LANGSMITH_PROJECT` | Optional LangSmith project name |
 | `ENVIRONMENT` | Runtime label, e.g. `local` |
 | `LOG_LEVEL` | Logging level, e.g. `INFO` |
-| `CORS_ORIGINS` | Comma-separated allowlist for the FastAPI CORS middleware. Default covers `:3000` and `:5173` |
+| `CORS_ORIGINS` | Comma-separated allowlist for the FastAPI CORS middleware. Default covers `:3000`, `:3001`, and `:5173` |
 | `SLACK_BOT_TOKEN` | Reserved for a future real Slack client; not required for mock demo mode |
 | `SLACK_CHANNEL` | Reserved for a future real Slack client; not required for mock demo mode |
 | `JIRA_URL` / `JIRA_USER` / `JIRA_TOKEN` / `JIRA_PROJECT_KEY` | Reserved for a future real JIRA client; not required for mock demo mode |
@@ -354,7 +358,14 @@ State flow: `agents/models.py::State` is a TypedDict threaded through every node
 
 **Never commit `.env`.** Root and frontend env files are ignored; commit only `.env.example` files.
 
-Slack and JIRA are implemented as demo-safe mock tools. They demonstrate the action/tool integration pattern without requiring external credentials. Real Slack/JIRA clients can be added later using environment variables.
+Slack and JIRA are implemented as demo-safe mock tools. They demonstrate the action/tool integration pattern without requiring external credentials. Real Slack/JIRA/Gmail APIs can be plugged in later using environment variables.
+
+## Known Limitations
+
+- Slack and JIRA are demo-safe mock tools. They generate realistic Slack-style notification output and JIRA-style ticket output without external credentials.
+- Gmail is intentionally out of scope for the hackathon demo.
+- Human approval is implemented as a workflow gate/mock control, not a full enterprise approval UI.
+- LangSmith tracing is optional and only sends traces when `LANGSMITH_TRACING=true` and a user-provided `LANGSMITH_API_KEY` are configured.
 
 ---
 
