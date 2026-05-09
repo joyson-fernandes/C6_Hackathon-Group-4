@@ -119,6 +119,13 @@ export function Dashboard() {
                 <PipelineRow label="Quality" value={current.report.quality_score != null ? `${current.report.quality_score}/10` : '—'} />
                 <PipelineRow label="Retries" value={String(current.report.retry_count)} />
                 <PipelineRow label="RAG snippets" value={String(current.report.rag_snippet_count)} />
+                {current.report.usage && (
+                  <>
+                    <PipelineRow label="LLM calls" value={String(current.report.usage.llm_calls)} />
+                    <PipelineRow label="Tokens" value={`${current.report.usage.total_tokens.toLocaleString()} (${current.report.usage.total_tokens_input}↑ / ${current.report.usage.total_tokens_output}↓)`} />
+                    <PipelineRow label="Cost" value={`$${current.report.usage.total_cost_usd.toFixed(4)}`} mono />
+                  </>
+                )}
               </div>
             </Card>
           )}

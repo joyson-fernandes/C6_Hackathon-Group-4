@@ -189,6 +189,9 @@ export function IncidentDetails() {
                 <Row label="Validator" value={report.validator_status ?? '—'} />
                 <Row label="Quality" value={report.quality_score != null ? `${report.quality_score}/10` : '—'} />
                 <Row label="Retries" value={String(report.retry_count)} />
+                {report.usage && <Row label="LLM calls" value={String(report.usage.llm_calls)} />}
+                {report.usage && <Row label="Tokens" value={report.usage.total_tokens.toLocaleString()} />}
+                {report.usage && <Row label="Cost" value={`$${report.usage.total_cost_usd.toFixed(4)}`} mono />}
                 {report.human_approval_status && (
                   <Row label="Human approval" value={report.human_approval_status} />
                 )}

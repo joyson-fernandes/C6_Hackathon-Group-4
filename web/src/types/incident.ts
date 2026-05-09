@@ -145,6 +145,18 @@ export interface AnalysisReport {
   jira_priority?: string | null;
   jira_summary?: string;
   jira_description_preview?: string;
+
+  usage?: UsageSummary;
+}
+
+export interface UsageSummary {
+  llm_calls: number;
+  total_tokens_input: number;
+  total_tokens_output: number;
+  total_tokens: number;
+  total_cost_usd: number;
+  models_used: string[];
+  unpriced_calls: number;
 }
 
 export interface AnalysisRun {

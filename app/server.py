@@ -25,6 +25,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from agents.cost import CostTracker
 from agents.graph import build_graph
 from agents.smith import configure_langsmith
 
@@ -110,12 +111,14 @@ def analyze(
     if x_openrouter_model:
         overrides["OPENROUTER_MODEL"] = x_openrouter_model
 
+    tracker = CostTracker()
+    invoke_config = {"callbacks": [tracker]}
     try:
         if overrides:
             with _env_override(overrides):
-                state = graph.invoke({"raw_logs": req.logs})
+                state = graph.invoke({"raw_logs": req.logs}, config=invoke_config)
         else:
-            state = graph.invoke({"raw_logs": req.logs})
+            state = graph.invoke({"raw_logs": req.logs}, config=invoke_config)
     except RuntimeError as e:
         # agents/config.py raises this when no API key is available.
         raise HTTPException(status_code=400, detail=str(e))
@@ -176,6 +179,11 @@ def analyze(
         "jira_priority": state.get("jira_priority"),
         "jira_summary": state.get("jira_summary", ""),
         "jira_description_preview": state.get("jira_description_preview", ""),
+
+        # Token + USD cost summary for this run (computed by CostTracker
+        # callback during graph.invoke). Surfaces in the OpsGPT UI's
+        # "Latest Run" card and the Workflow header.
+        "usage": tracker.summary(),
     }
 
 

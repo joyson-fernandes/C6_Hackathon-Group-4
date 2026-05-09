@@ -63,6 +63,20 @@ export function WorkflowView() {
           />
           <SummaryBadge label="Quality" value={summary.qualityScore} className="bg-blue-500/10 text-blue-400 border-blue-500/30" />
           <SummaryBadge label="Retries" value={String(summary.retryCount)} className="bg-slate-700/30 text-slate-400 border-slate-700" />
+          {current.report.usage && (
+            <SummaryBadge
+              label="Cost"
+              value={`$${current.report.usage.total_cost_usd.toFixed(4)}`}
+              className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+            />
+          )}
+          {current.report.usage && (
+            <SummaryBadge
+              label="Tokens"
+              value={current.report.usage.total_tokens.toLocaleString()}
+              className="bg-slate-700/30 text-slate-300 border-slate-700"
+            />
+          )}
         </div>
       </div>
 
