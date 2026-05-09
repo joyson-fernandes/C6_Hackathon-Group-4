@@ -79,6 +79,20 @@ path that bypasses remediation entirely. The validator agent creates a
 feedback loop by sending weak remediation outputs back for revision (capped
 at 2 retries) before final reporting.
 
+**Human-in-the-loop note.** The `human_approval` node is implemented as a
+workflow control gate: it flags `human_approval_status: "required"` for
+critical/escalated incidents and continues, so the demo runs end-to-end
+without blocking. The graph topology is production-ready — swapping the
+node body for `langgraph.types.interrupt` makes it a true blocking gate
+that only resumes when an operator clicks Approve in the UI / Slack. No
+edges or downstream nodes need to change.
+
+**Observability.** LangSmith tracing is wired at server startup via
+`agents/smith.py::configure_langsmith()`. It is a no-op until
+`LANGSMITH_TRACING=true` and `LANGSMITH_API_KEY` are set in `.env`. When
+enabled, every classifier / remediation / cookbook LLM call and every
+LangGraph node shows up as a span in the LangSmith project dashboard.
+
 ---
 
 ## Project layout

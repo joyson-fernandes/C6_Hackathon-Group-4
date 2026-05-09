@@ -124,11 +124,18 @@ def summary_report(state: State) -> dict:
 
 
 def human_approval(state: State) -> dict:
-    """Stub human approval gate.
+    """Human-in-the-loop approval gate.
 
-    For the demo we mark approval as "required" and continue. In a real
-    deployment this would block on a Slack/Web button and only resume on
-    operator action.
+    For hackathon scope this is a *workflow control gate*: the node sets
+    ``human_approval_status: "required"`` whenever the severity router or
+    validator flagged ``requires_human_approval`` / ``escalation_required``,
+    then continues so the demo runs end-to-end without blocking.
+
+    The graph topology is identical to a production HITL setup — to make
+    this gate truly blocking, swap the body for ``langgraph.types.interrupt``
+    and resume the run when the operator clicks Approve in the UI / Slack.
+    No edges need to change; the node already sits on the path between
+    cookbook synthesis and the notification fan-out.
     """
     trace = list(state.get("execution_path") or [])
     trace.append("human_approval")

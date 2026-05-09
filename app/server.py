@@ -26,8 +26,15 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from agents.graph import build_graph
+from agents.smith import configure_langsmith
 
 load_dotenv()
+
+# Initialize LangSmith tracing at import time (no-op unless LANGSMITH_TRACING=true
+# AND LANGSMITH_API_KEY is set in the environment). When enabled, every LangChain
+# / LangGraph call inside this app — classifier, remediation, cookbook — appears
+# as a span in the LangSmith project dashboard.
+configure_langsmith()
 
 app = FastAPI(title="DevOps Incident Analysis API")
 
