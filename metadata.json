@@ -1,0 +1,6 @@
+{
+  "name": "OpsGPT",
+  "description": "AI-powered DevOps Incident Analysis platform for rapid SRE response and remediation analysis.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
