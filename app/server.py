@@ -16,7 +16,7 @@ import os
 import threading
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Dict, Iterator, Optional
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException
@@ -31,7 +31,7 @@ load_dotenv()
 
 app = FastAPI(title="DevOps Incident Analysis API")
 
-origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173").split(",") if o.strip()]
+origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:5173").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -54,9 +54,9 @@ _env_lock = threading.Lock()
 
 
 @contextmanager
-def _env_override(updates: dict[str, str | None]) -> Iterator[None]:
+def _env_override(updates: Dict[str, Optional[str]]) -> Iterator[None]:
     """Temporarily set env vars for the duration of a block, then restore."""
-    saved: dict[str, str | None] = {}
+    saved: Dict[str, Optional[str]] = {}
     with _env_lock:
         try:
             for key, value in updates.items():
@@ -91,13 +91,13 @@ def health() -> dict[str, bool]:
 @app.post("/api/analyze")
 def analyze(
     req: AnalyzeRequest,
-    x_openrouter_api_key: str | None = Header(default=None, alias="X-OpenRouter-API-Key"),
-    x_openrouter_model: str | None = Header(default=None, alias="X-OpenRouter-Model"),
+    x_openrouter_api_key: Optional[str] = Header(default=None, alias="X-OpenRouter-API-Key"),
+    x_openrouter_model: Optional[str] = Header(default=None, alias="X-OpenRouter-Model"),
 ) -> dict[str, Any]:
     if not req.logs.strip():
         raise HTTPException(status_code=400, detail="logs is empty")
 
-    overrides: dict[str, str | None] = {}
+    overrides: Dict[str, Optional[str]] = {}
     if x_openrouter_api_key:
         overrides["OPENROUTER_API_KEY"] = x_openrouter_api_key
     if x_openrouter_model:

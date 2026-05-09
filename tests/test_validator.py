@@ -3,6 +3,7 @@
 Deterministic, no LLM calls. We hand the validator a fake remediations dict
 and assert the verdict it returns.
 """
+from typing import Optional
 from agents.models import Fix
 from agents.validator import (
     validate_remediation,
@@ -16,7 +17,7 @@ def _fix(
     rationale: str = "Root cause identified",
     steps=None,
     risk: str = "medium",
-    runbook_ref: str | None = None,
+    runbook_ref: Optional[str] = None,
 ) -> Fix:
     return Fix(
         incident_id=incident_id,

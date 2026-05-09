@@ -52,7 +52,7 @@ INFO_KEYWORDS = [
 ]
 
 
-def _normalize(level: str | None) -> str:
+def _normalize(level: Optional[str]) -> str:
     """Map legacy/unknown severity strings to the canonical 5-level scale."""
     if not level:
         return "info"
