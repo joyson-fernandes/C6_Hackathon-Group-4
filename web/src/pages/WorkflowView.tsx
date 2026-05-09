@@ -135,7 +135,7 @@ export function WorkflowView() {
           </div>
         </div>
         <div className="p-8 bg-black/20">
-          <AgentWorkflowGraph nodes={workflow.nodes} />
+          <AgentWorkflowGraph nodes={workflow.nodes} report={current.report} />
         </div>
       </Card>
 

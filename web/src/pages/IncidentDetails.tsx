@@ -138,7 +138,7 @@ export function IncidentDetails() {
                       </div>
                     </div>
                     <div className="p-6">
-                      <AgentWorkflowGraph nodes={workflow.nodes} />
+                      <AgentWorkflowGraph nodes={workflow.nodes} report={report} />
                     </div>
                   </Card>
                 )}
