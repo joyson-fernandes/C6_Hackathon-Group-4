@@ -56,6 +56,27 @@ class RetrievedSnippet(TypedDict):
     score: float          # BM25 relevance score
 
 
+# RAG policy by severity. Drives both the prompt instructions and the
+# post-generation compliance check.
+SEVERITY_RAG_POLICY = {
+    "critical": "mandatory",            # missing evidence -> fail
+    "high":     "strongly_preferred",   # missing evidence -> warn
+    "warn":     "preferred",            # missing evidence -> soft warn
+    "info":     "optional",             # missing evidence -> ok
+}
+
+
+class RagCompliance(TypedDict):
+    """Per-incident verdict on whether the severity-based RAG policy is met."""
+    incident_id: str
+    severity: Severity
+    requirement: str  # "mandatory" | "strongly_preferred" | "preferred" | "optional"
+    status: str       # "ok" | "warn" | "fail"
+    reason: str       # human-readable explanation
+    rag_confidence: RagConfidence
+    runbook_ref: str | None
+
+
 class State(TypedDict, total=False):
     """The shared state object passed between every node in the LangGraph DAG.
 
@@ -76,3 +97,4 @@ class State(TypedDict, total=False):
     rag_context: str                           # concatenated snippet text
     rag_sources: list[str]                     # unique source filenames
     rag_confidence: RagConfidence              # high / medium / low / none
+    rag_compliance: list[RagCompliance]        # severity-policy verdict per incident

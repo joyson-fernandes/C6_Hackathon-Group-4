@@ -72,10 +72,25 @@ if st.button("Analyze", type="primary", disabled=not logs_text):
 
     # Tab: Remediations
     with tab_rem:
+        compliance_by_id = {
+            c["incident_id"]: c for c in result.get("rag_compliance", [])
+        }
+        status_emoji = {"ok": "✅", "warn": "⚠️", "fail": "❌"}
         for fid, fix in result["remediations"].items():
-            st.subheader(f"{fid} - risk: {fix.risk}")
+            comp = compliance_by_id.get(fid)
+            badge = (
+                f"{status_emoji.get(comp['status'], '')} RAG: {comp['status']} "
+                f"({comp['requirement']})"
+                if comp else ""
+            )
+            st.subheader(f"{fid} - risk: {fix.risk}  {badge}")
             if fix.runbook_ref:
                 st.caption(f"Cited runbook: `{fix.runbook_ref}`")
+            if comp and comp["status"] != "ok":
+                if comp["status"] == "fail":
+                    st.error(comp["reason"])
+                else:
+                    st.warning(comp["reason"])
             st.write(fix.rationale)
             for n, s in enumerate(fix.steps, 1):
                 st.write(f"{n}. {s}")
@@ -97,6 +112,29 @@ if st.button("Analyze", type="primary", disabled=not logs_text):
                 st.markdown(f"- `{src}`")
 
         st.divider()
+        st.markdown("### RAG policy compliance (severity-based)")
+        compliance = result.get("rag_compliance", [])
+        if not compliance:
+            st.info("No compliance data")
+        else:
+            n_fail = sum(1 for c in compliance if c["status"] == "fail")
+            n_warn = sum(1 for c in compliance if c["status"] == "warn")
+            n_ok = sum(1 for c in compliance if c["status"] == "ok")
+            cc = st.columns(3)
+            cc[0].metric("Pass", n_ok)
+            cc[1].metric("Warn", n_warn)
+            cc[2].metric("Fail", n_fail)
+
+            for c in compliance:
+                emoji = {"ok": "✅", "warn": "⚠️", "fail": "❌"}[c["status"]]
+                st.markdown(
+                    f"{emoji} **{c['incident_id']}** "
+                    f"`{c['severity']}` -> requirement: `{c['requirement']}` -> "
+                    f"status: `{c['status']}`"
+                )
+                st.caption(c["reason"])
+
+        st.divider()
         st.markdown("### Retrieved snippets (sorted by score)")
         for snip in snippets:
             with st.expander(
@@ -110,7 +148,7 @@ if st.button("Analyze", type="primary", disabled=not logs_text):
             "retrieved_runbooks": snippets,
             "rag_sources": sources,
             "rag_confidence": confidence,
-            # rag_context can be huge; show a truncated preview only.
+            "rag_compliance": result.get("rag_compliance", []),
             "rag_context_preview": (result.get("rag_context", "") or "")[:1000] + (
                 "..." if len(result.get("rag_context", "") or "") > 1000 else ""
             ),
