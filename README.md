@@ -250,28 +250,3 @@ The frontend demonstrates:
 | Testing | Pytest |
 
 ---
-
-# Deployment Architecture
-
-Production deployment uses:
-- Kubernetes
-- ArgoCD GitOps
-- Harbor Registry
-- Traefik Ingress
-- cert-manager TLS
-
-Deployment Flow:
-
-```text
-GitHub Push
-    ↓
-Self-hosted CI Runner
-    ↓
-Docker Build
-    ↓
-Harbor Registry
-    ↓
-ArgoCD Sync
-    ↓
-Kubernetes Deployment
-```
