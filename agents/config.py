@@ -7,6 +7,10 @@ models by editing .env, no code changes needed.
 We use langchain-openai (the OpenAI SDK wrapper) but point it at OpenRouter,
 which exposes an OpenAI-compatible endpoint. OpenRouter lets us switch
 between Claude, GPT, Gemini, Llama, etc. with just a model-name change.
+
+Configuration is read at *call time* (not import time) so per-request
+overrides — e.g. an `X-OpenRouter-API-Key` header from the UI — can swap
+the env var for the duration of one request via app/server.py.
 """
 import os
 from dotenv import load_dotenv          # reads .env file into os.environ
@@ -15,11 +19,18 @@ from langchain_openai import ChatOpenAI  # LangChain's OpenAI-compatible chat mo
 # Load .env once at import time so os.getenv works for the rest of the file.
 load_dotenv()
 
-# Pull settings from environment with sensible defaults.
-# OPENROUTER_MODEL can be any model id from https://openrouter.ai/models
-MODEL = os.getenv("OPENROUTER_MODEL", "anthropic/claude-sonnet-4.5")
-BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
-API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+
+def _settings() -> tuple[str, str, str]:
+    """Read model / base URL / API key from env at call time.
+
+    Returns (model, base_url, api_key). Each is read fresh so server.py can
+    override OPENROUTER_API_KEY (or OPENROUTER_MODEL) per-request.
+    """
+    return (
+        os.getenv("OPENROUTER_MODEL", "anthropic/claude-sonnet-4.5"),
+        os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+        os.getenv("OPENROUTER_API_KEY", ""),
+    )
 
 
 def get_llm(max_tokens: int = 2048, structured_output_schema=None):
@@ -34,15 +45,18 @@ def get_llm(max_tokens: int = 2048, structured_output_schema=None):
     Returns:
         A LangChain Runnable. Call .invoke(prompt_string) on it.
     """
-    if not API_KEY:
+    model, base_url, api_key = _settings()
+
+    if not api_key:
         raise RuntimeError(
-            "OPENROUTER_API_KEY is not set. Copy .env.example to .env and fill it in."
+            "OPENROUTER_API_KEY is not set. Set it in the Settings tab of the "
+            "UI, or copy .env.example to .env and fill it in."
         )
 
     llm = ChatOpenAI(
-        model=MODEL,
-        api_key=API_KEY,
-        base_url=BASE_URL,
+        model=model,
+        api_key=api_key,
+        base_url=base_url,
         max_tokens=max_tokens,
         # Headers OpenRouter uses to attribute usage on their dashboard.
         # Must be ASCII only — non-ASCII characters (em-dash etc.) will crash.
@@ -51,9 +65,6 @@ def get_llm(max_tokens: int = 2048, structured_output_schema=None):
             "X-Title": "C6 Hackathon - DevOps Incident Suite",
         },
     )
-    # If a schema was passed, wrap the LLM so its output is parsed into that
-    # Pydantic model automatically. .invoke() now returns an instance of the
-    # schema instead of a raw string.
     if structured_output_schema is not None:
         return llm.with_structured_output(structured_output_schema)
     return llm

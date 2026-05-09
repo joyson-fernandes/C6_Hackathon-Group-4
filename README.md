@@ -296,6 +296,85 @@ Future upgrade path: swap BM25 for semantic embeddings if the KB grows past ~50 
 
 ---
 
+## Deployment (Joysontech homelab)
+
+Public deployment lives at **https://opsgpt.joysontech.com** on the Joysontech K8s cluster. CI/GitOps follows the same pattern as Outpost.
+
+### Architecture
+
+```
+GitHub push → Self-hosted runner (10.0.1.40) → Harbor → values.yaml bump → ArgoCD → K8s
+                                                                                   │
+                                                                                   ▼
+                                                                  Traefik IngressRoute
+                                                                  cert-manager letsencrypt-prod
+                                                                  → opsgpt.joysontech.com
+```
+
+**Image:** `registry.joysontech.com/library/c6-hackathon:<version>-<date>-<sha>`
+**Namespace:** `c6-hackathon`
+**Helm chart:** `deploy/chart/`
+**ArgoCD App:** `gitops/apps/tools/c6-hackathon.yaml` (managed in [the gitops repo](https://github.com/joyson-fernandes/gitops))
+
+### One-time setup
+
+Anything below is per-environment, not per-deploy.
+
+**1. Vault — store the default OpenRouter key.** The frontend Settings tab lets each teammate use their own key, but the cluster needs a fallback so the backend boots cleanly:
+
+```bash
+vault kv put secret/c6-hackathon \
+  OPENROUTER_API_KEY=sk-or-v1-... \
+  OPENROUTER_MODEL=anthropic/claude-sonnet-4.5
+```
+
+The `ExternalSecret` in the chart pulls everything under `secret/c6-hackathon` into a K8s Secret called `c6-hackathon-secrets` and `envFrom`s it into the pod.
+
+**2. GitHub secrets** on this repo:
+- `HARBOR_USERNAME` — Harbor robot account
+- `HARBOR_PASSWORD` — robot password
+
+**3. DNS** — point `opsgpt.joysontech.com` at the cluster's Traefik external IP (same target as `outpost.joysontech.com` etc.). cert-manager handles the TLS cert via Let's Encrypt HTTP-01 once DNS resolves.
+
+**4. ArgoCD webhook** (optional, gives instant sync) — add `https://argocd.joysontech.com/api/webhook` to this repo's GitHub webhook settings, content type `application/json`. Without it, ArgoCD polls every ~3 min.
+
+### CI flow
+
+`.github/workflows/ci.yaml` runs on every push to `main`:
+
+| Job | What it does |
+|---|---|
+| `test` | npm ci + tsc build + pip install + pytest |
+| `build-and-push` | docker build → push to Harbor → trivy scan (fail on CRITICAL/HIGH) |
+| `bump-chart` | `sed`-update `deploy/chart/values.yaml` with the new tag → commit `[skip ci]` |
+
+ArgoCD picks up the values.yaml change and reconciles the cluster (~3 min, or instant if the webhook is configured).
+
+### Per-user OpenRouter key (Settings tab)
+
+Each teammate can paste their own OpenRouter key in the Settings tab. It's stored in their browser's localStorage as `opsgpt:openrouter_api_key` and sent with each `/api/analyze` request as the `X-OpenRouter-API-Key` header. The backend overrides the env var for the duration of that single request (serialized via a mutex), so you never have to share the Vault key.
+
+If no header is present, the backend falls back to whatever `OPENROUTER_API_KEY` is mounted from Vault — so the cluster works out of the box without any user intervention.
+
+### Local Docker test
+
+To verify the production image before pushing:
+
+```bash
+docker build -t c6-hackathon:local .
+docker run --rm -p 8000:8000 \
+  -e OPENROUTER_API_KEY=sk-or-v1-... \
+  c6-hackathon:local
+
+# Visit http://localhost:8000 — same code path as production.
+```
+
+### Rollback
+
+ArgoCD UI → app `c6-hackathon` → History and Rollback → pick the last good sync. Or revert the `values.yaml` commit and ArgoCD will reconcile to the older image tag.
+
+---
+
 ## Git workflow & branching
 
 We're working as a team in a tight time window — keep it simple.

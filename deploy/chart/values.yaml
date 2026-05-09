@@ -1,0 +1,83 @@
+replicaCount: 1
+
+image:
+  repository: registry.joysontech.com/library/c6-hackathon
+  tag: "0.1.0-dev"
+  pullPolicy: Always
+
+imagePullSecrets:
+  - name: harbor-pull-secret
+
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 8000
+
+ingress:
+  enabled: true
+  host: opsgpt.joysontech.com
+  certManager:
+    enabled: true
+    issuerKind: ClusterIssuer
+    issuerName: letsencrypt-prod
+  traefik:
+    # Both required for LE HTTP-01 to work behind Traefik's global redirect.
+    entryPoints:
+      - web
+      - websecure
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+# Plain (non-secret) container env.
+env:
+  PORT: "8000"
+  CORS_ORIGINS: "https://opsgpt.joysontech.com"
+  OPENROUTER_BASE_URL: "https://openrouter.ai/api/v1"
+
+# Vault-backed secret. ExternalSecret syncs `secret/c6-hackathon` from Vault
+# into a K8s Secret with this name. The Deployment uses envFrom: secretRef.
+existingSecret: c6-hackathon-secrets
+
+externalSecret:
+  enabled: true
+  vaultPath: c6-hackathon
+  secretStoreName: vault
+  secretStoreKind: ClusterSecretStore
+  refreshInterval: 1h
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+podLabels: {}
+podAnnotations: {}
+
+# Kyverno require-labels expects app/team/env. Emitted via _helpers.tpl.
+labels:
+  partOf: c6-hackathon
+  component: api
+  team: hackathon
+  env: production

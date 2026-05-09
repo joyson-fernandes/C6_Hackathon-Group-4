@@ -1,19 +1,52 @@
+import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { Settings, Zap, Server, Trash2 } from 'lucide-react';
+import { Settings, Zap, Server, Trash2, Key, Check, AlertCircle } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { useAnalysisStore } from '../store/AnalysisStore';
+import { apiService } from '../services/apiService';
+import { clearApiKey, getApiKey, maskApiKey, setApiKey } from '../utils/apiKey';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export function SettingsView() {
   const { runs, clearRuns } = useAnalysisStore();
+  const [storedKey, setStoredKey] = useState<string | null>(() => getApiKey());
+  const [draft, setDraft] = useState('');
+  const [saved, setSaved] = useState(false);
+  const [serverKeyConfigured, setServerKeyConfigured] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    apiService.health()
+      .then(h => setServerKeyConfigured(h.server_key_configured))
+      .catch(() => setServerKeyConfigured(null));
+  }, []);
+
+  const handleSave = () => {
+    const trimmed = draft.trim();
+    if (!trimmed) return;
+    setApiKey(trimmed);
+    setStoredKey(trimmed);
+    setDraft('');
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1800);
+  };
+
+  const handleClear = () => {
+    clearApiKey();
+    setStoredKey(null);
+    setDraft('');
+  };
+
+  const usingPersonal = !!storedKey;
+  const usingServerFallback = !storedKey && serverKeyConfigured === true;
+  const noKeyAvailable = !storedKey && serverKeyConfigured === false;
 
   return (
     <motion.div initial={{ opacity: 0, scale: 0.99 }} animate={{ opacity: 1, scale: 1 }} className="max-w-4xl mx-auto space-y-8">
       <div>
         <h1 className="text-3xl font-bold text-white tracking-tight">Configuration</h1>
-        <p className="text-slate-400 mt-1">Backend wiring, model defaults, and local run history.</p>
+        <p className="text-slate-400 mt-1">Backend wiring, model defaults, and your personal API key.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
@@ -24,6 +57,58 @@ export function SettingsView() {
         </aside>
 
         <div className="md:col-span-3 space-y-8">
+          <Card title="OpenRouter API Key" icon={<Key className="w-4 h-4 text-blue-500" />}>
+            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+              Paste your own OpenRouter key — it stays in this browser only and is sent
+              with each <code className="text-slate-200 font-mono">/api/analyze</code> request via the
+              <code className="text-slate-200 font-mono"> X-OpenRouter-API-Key</code> header. Get one at{' '}
+              <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">
+                openrouter.ai/keys
+              </a>.
+            </p>
+
+            <div className="mt-4 space-y-3">
+              <div className={`px-3 py-2 rounded-lg border text-xs flex items-center gap-2 ${
+                usingPersonal ? 'bg-green-500/10 border-green-500/30 text-green-400' :
+                usingServerFallback ? 'bg-blue-500/10 border-blue-500/30 text-blue-400' :
+                noKeyAvailable ? 'bg-red-500/10 border-red-500/30 text-red-400' :
+                'bg-slate-700/30 border-slate-700 text-slate-400'
+              }`}>
+                {usingPersonal ? <Check className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
+                <span>
+                  {usingPersonal && <>Using personal key <span className="font-mono ml-1">{maskApiKey(storedKey!)}</span></>}
+                  {usingServerFallback && <>Using server-side default (Vault). Override below to use your own.</>}
+                  {noKeyAvailable && <>No key configured — analysis will fail until one is set.</>}
+                  {serverKeyConfigured === null && !storedKey && 'Checking server key status…'}
+                </span>
+              </div>
+
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  placeholder="sk-or-v1-…"
+                  className="flex-1 bg-slate-900 border border-slate-800 px-3 py-2 text-xs text-white rounded font-mono outline-none focus:border-blue-500"
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                <Button onClick={handleSave} disabled={!draft.trim()}>
+                  {saved ? <><Check className="w-4 h-4" /> Saved</> : 'Save'}
+                </Button>
+                {storedKey && (
+                  <Button variant="outline" onClick={handleClear}>
+                    Clear
+                  </Button>
+                )}
+              </div>
+
+              <p className="text-[10px] text-slate-500">
+                Stored as <code className="font-mono">opsgpt:openrouter_api_key</code> in localStorage. Never sent to GitHub or the server's persistent state.
+              </p>
+            </div>
+          </Card>
+
           <Card title="Backend" icon={<Server className="w-4 h-4 text-blue-500" />}>
             <div className="space-y-4 mt-4">
               <Field label="API URL" value={API_URL} hint="Set VITE_API_URL in web/.env" />
@@ -34,7 +119,7 @@ export function SettingsView() {
 
           <Card title="Model" icon={<Zap className="w-4 h-4 text-blue-500" />}>
             <div className="space-y-4 mt-4">
-              <Field label="Default" value="anthropic/claude-sonnet-4.5" hint="Override via OPENROUTER_MODEL" />
+              <Field label="Default" value="anthropic/claude-sonnet-4.5" hint="Override via OPENROUTER_MODEL env var" />
               <Field label="Structured output" value="Pydantic v2 schemas" />
             </div>
           </Card>
