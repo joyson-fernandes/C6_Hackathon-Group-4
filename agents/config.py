@@ -53,6 +53,18 @@ def get_llm(max_tokens: int = 2048, structured_output_schema=None):
             "UI, or copy .env.example to .env and fill it in."
         )
 
+    # OpenRouter prefixes model ids with "<provider>/" (e.g. "anthropic/...").
+    # LangSmith's pricing catalog matches on the bare model name, so we
+    # split and surface both as metadata — that lights up cost on every span.
+    if "/" in model:
+        ls_provider, raw_model_name = model.split("/", 1)
+    else:
+        ls_provider, raw_model_name = "openai", model
+    # LangSmith's pricing catalog keys Anthropic models as `claude-sonnet-4-5`
+    # (dashes), but OpenRouter exposes the same model as `claude-sonnet-4.5`
+    # (dot). Normalize to the catalog format so cost lights up on every span.
+    ls_model_name = raw_model_name.replace(".", "-")
+
     llm = ChatOpenAI(
         model=model,
         api_key=api_key,
@@ -63,6 +75,11 @@ def get_llm(max_tokens: int = 2048, structured_output_schema=None):
         default_headers={
             "HTTP-Referer": "https://github.com/C6-Hackathon-Group-4",
             "X-Title": "C6 Hackathon - DevOps Incident Suite",
+        },
+        metadata={
+            "ls_provider": ls_provider,
+            "ls_model_name": ls_model_name,
+            "ls_model_type": "chat",
         },
     )
     if structured_output_schema is not None:
