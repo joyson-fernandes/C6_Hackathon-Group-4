@@ -140,8 +140,11 @@ const NODE_SPECS: NodeSpec[] = [
   {
     id: 'summary_report',
     name: 'Summary Report',
-    description: 'Lightweight branch for info-only logs (skips remediation).',
-    output: r => r.severity === 'info' ? 'Info-only path used.' : 'Bypassed.',
+    description: 'Lightweight branch for info-only logs — bypasses remediation entirely. Only fires when the aggregate severity is "info".',
+    output: r =>
+      r.severity === 'info'
+        ? 'Used — info-only logs.'
+        : `Skipped — severity "${r.severity ?? '—'}" took the full remediation path.`,
   },
   {
     id: 'human_approval',

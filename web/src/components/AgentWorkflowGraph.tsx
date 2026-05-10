@@ -392,12 +392,32 @@ function CookbookDetail({ report }: { report: AnalysisReport }) {
 }
 
 function SummaryReportDetail({ report }: { report: AnalysisReport }) {
+  const isInfo = report.severity === 'info';
   return (
-    <p className="text-sm text-muted-foreground italic">
-      {report.severity === 'info'
-        ? 'Used for info-only logs — bypasses remediation entirely.'
-        : `Bypassed for ${report.severity ?? '—'} severity (only used when severity = info).`}
-    </p>
+    <div className="space-y-3 text-sm">
+      <p className="text-foreground/90 leading-relaxed">
+        {isInfo ? (
+          <>
+            This run contained only informational log lines — no real incidents to remediate. The pipeline took the
+            lightweight path: <span className="font-mono text-xs">classify → severity_router → summary_report → report</span>.
+            Remediation, RAG, validator, and cookbook were all skipped.
+          </>
+        ) : (
+          <>
+            This node was <span className="font-semibold text-foreground">skipped on purpose</span>.{' '}
+            <code className="font-mono text-xs px-1 py-0.5 rounded bg-muted">summary_report</code> is the info-only
+            branch — it only fires when the aggregate severity is{' '}
+            <code className="font-mono text-xs px-1 py-0.5 rounded bg-muted">info</code> (no real incidents). Your run
+            was severity{' '}
+            <code className="font-mono text-xs px-1 py-0.5 rounded bg-muted">{report.severity ?? '—'}</code>, so the
+            severity-router took the full remediation path instead.
+          </>
+        )}
+      </p>
+      <div className="text-xs text-muted-foreground">
+        Routing path used: <span className="font-mono">{report.routing_path ?? '—'}</span>
+      </div>
+    </div>
   );
 }
 
