@@ -1,8 +1,10 @@
 # Demo Script
 
+Recorded walkthrough: https://youtu.be/j4xBnNJL48Q
+
 ## 1. Project Intro
 
-OpsGPT is a Multi-Agent DevOps Incident Analysis Suite built for the Outskill AI Engineering Hackathon. It turns raw operational logs into structured incidents, RAG-grounded remediation steps, validator feedback, mock notification/ticket outputs, and a final incident report.
+OpsGPT is a Multi-Agent DevOps Incident Analysis Suite built for the Outskill AI Engineering Hackathon. It turns raw operational logs into structured incidents, RAG-grounded remediation steps, validator feedback, mock notification/ticket outputs, and a final incident report. If the live app is unavailable during judging, use the recorded walkthrough as the end-to-end reference demo.
 
 ## 2. Architecture Overview
 
@@ -21,6 +23,8 @@ npm run dev
 ```
 
 In the UI, upload or paste `payment_errors.log`. This case is the strongest demo because it triggers the critical/high path and shows RAG, validation, and mock notification/ticket outputs.
+
+The same path is captured in the demo video, so judges can still review the full workflow asynchronously.
 
 ## 4. Severity Router
 

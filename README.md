@@ -8,7 +8,7 @@
 
 Upload ops logs → 8-node LangGraph DAG classifies incidents, retrieves runbook evidence, generates RAG-grounded fixes, validates them, and renders a final markdown report — surfaced through a polished React dashboard.
 
-**[🌐 Live Demo](https://opsgpt.joysontech.com)** · **[📖 API Reference](#-api-reference)** · **[🚀 Setup](#-quick-start)** · **[🎬 Demo Script](docs/demo_script.md)**
+**[🌐 Live Demo](https://opsgpt.joysontech.com)** · **[📹 Demo Video](https://youtu.be/j4xBnNJL48Q)** · **[📖 API Reference](#-api-reference)** · **[🚀 Setup](#-quick-start)** · **[🎬 Demo Script](docs/demo_script.md)**
 
 <br>
 
@@ -45,6 +45,14 @@ Upload ops logs → 8-node LangGraph DAG classifies incidents, retrieves runbook
 </div>
 
 <br>
+
+---
+
+## 📹 Demo Video
+
+Watch the recorded walkthrough: **[OpsGPT — Multi-Agent DevOps Incident Suite (C6 Hackathon Demo)](https://youtu.be/j4xBnNJL48Q)**.
+
+The video shows `payment_errors.log` running end-to-end through severity routing, RAG-grounded remediation, validator review, mock Slack/JIRA outputs, token-cost tracking, and the final report.
 
 ---
 
