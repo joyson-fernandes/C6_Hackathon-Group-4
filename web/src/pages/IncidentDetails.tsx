@@ -61,8 +61,10 @@ export function IncidentDetails() {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 w-full">
-      {/* Sticky breadcrumb header */}
-      <div className="sticky top-14 -mx-6 md:-mx-8 px-6 md:px-8 py-3 z-30 bg-background/80 backdrop-blur border-b border-border">
+      {/* Breadcrumb header — not sticky so it doesn't overlap the meta strip
+          below as the user scrolls. The DashboardLayout's main header is
+          already sticky, so global navigation context is always available. */}
+      <div className="-mx-6 md:-mx-8 px-6 md:px-8 py-3 border-b border-border">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
             <Link
