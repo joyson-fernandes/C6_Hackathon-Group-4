@@ -113,114 +113,131 @@ export function IncidentDetails() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Main column */}
-        <div className="lg:col-span-3 min-w-0">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList>
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="workflow">Workflow</TabsTrigger>
-              <TabsTrigger value="logs">Logs</TabsTrigger>
-              <TabsTrigger value="cookbook">Cookbook</TabsTrigger>
-            </TabsList>
+      {/* Horizontal meta strip — facts at a glance, full width */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <MetaCell icon={Server} label="Service" value={incident.serviceName} mono />
+        <MetaCell label="Type" value={incident.incidentType} />
+        <MetaCell label="Source" value={incident.source} mono />
+        {incident.assignedTeam && <MetaCell label="Team" value={incident.assignedTeam} />}
+        {incident.slackChannel && (
+          <MetaCell icon={MessageSquare} label="Slack" value={incident.slackChannel} mono />
+        )}
+        {incident.jiraTicket && (
+          <MetaCell icon={Ticket} label="JIRA" value={incident.jiraTicket} mono />
+        )}
+        {report?.usage && (
+          <MetaCell label="Token Cost" value={`$${report.usage.total_cost_usd.toFixed(4)}`} mono accent />
+        )}
+        {report?.validator_status && (
+          <MetaCell label="Validator" value={report.validator_status} />
+        )}
+        {report?.quality_score != null && (
+          <MetaCell label="Quality" value={`${report.quality_score}/10`} />
+        )}
+      </div>
 
-            <TabsContent value="overview">
-              {!analysis ? <NoAnalysisYet /> : <RemediationPanel analysis={analysis} />}
-            </TabsContent>
+      {/* Full-width tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="workflow">Workflow</TabsTrigger>
+          <TabsTrigger value="logs">Logs</TabsTrigger>
+          <TabsTrigger value="cookbook">Cookbook</TabsTrigger>
+          <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
+        </TabsList>
 
-            <TabsContent value="workflow">
-              {workflow ? (
-                <Card className="overflow-hidden">
-                  <CardHeader className="flex flex-row items-center gap-2">
-                    <Activity className="h-4 w-4 text-primary" />
-                    <CardTitle className="text-sm">Agent Pipeline</CardTitle>
+        <TabsContent value="overview">
+          {!analysis ? <NoAnalysisYet /> : <RemediationPanel analysis={analysis} />}
+        </TabsContent>
+
+        <TabsContent value="workflow">
+          {workflow ? (
+            <Card className="overflow-hidden">
+              <CardHeader className="flex flex-row items-center gap-2">
+                <Activity className="h-4 w-4 text-primary" />
+                <CardTitle className="text-sm">Agent Pipeline</CardTitle>
+              </CardHeader>
+              <CardContent className="px-0 pb-6">
+                <AgentWorkflowGraph nodes={workflow.nodes} report={report} />
+              </CardContent>
+            </Card>
+          ) : <NoAnalysisYet />}
+        </TabsContent>
+
+        <TabsContent value="logs">
+          <Card className="p-0 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/20">
+              <div className="flex items-center gap-2">
+                <Terminal className="h-4 w-4 text-muted-foreground" />
+                <SectionLabel>Log buffer</SectionLabel>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()}>
+                <Upload className="h-3 w-3" />
+                Upload &amp; re-analyze
+              </Button>
+            </div>
+            <pre className="p-4 max-h-[600px] overflow-auto font-mono text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap">
+              {logs || <span className="text-muted-foreground/60 italic">Log buffer empty. Upload a file to attach raw logs.</span>}
+            </pre>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="cookbook">
+          {!analysis ? <NoAnalysisYet /> : <CookbookPanel analysis={analysis} />}
+        </TabsContent>
+
+        <TabsContent value="pipeline">
+          {!report ? (
+            <NoAnalysisYet />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm font-semibold">Pipeline state</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 text-xs">
+                  <MetaRow label="Run severity" value={report.severity ?? '—'} />
+                  <MetaRow label="Routing path" value={report.routing_path ?? '—'} mono />
+                  <MetaRow label="Validator" value={report.validator_status ?? '—'} />
+                  <MetaRow
+                    label="Quality"
+                    value={report.quality_score != null ? `${report.quality_score}/10` : '—'}
+                  />
+                  <MetaRow label="Retries" value={String(report.retry_count)} />
+                  {report.human_approval_status && (
+                    <MetaRow label="Approval" value={report.human_approval_status} />
+                  )}
+                  {report.escalation_required && <MetaRow label="Escalation" value="required" />}
+                </CardContent>
+              </Card>
+
+              {report.usage && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                      <Zap className="h-4 w-4 text-primary" /> Token cost
+                    </CardTitle>
                   </CardHeader>
-                  <CardContent className="px-0 pb-6">
-                    <AgentWorkflowGraph nodes={workflow.nodes} report={report} />
+                  <CardContent className="space-y-3 text-xs">
+                    <MetaRow label="LLM calls" value={String(report.usage.llm_calls)} />
+                    <MetaRow label="Input tokens" value={report.usage.total_tokens_input.toLocaleString()} />
+                    <MetaRow label="Output tokens" value={report.usage.total_tokens_output.toLocaleString()} />
+                    <MetaRow label="Total tokens" value={report.usage.total_tokens.toLocaleString()} />
+                    <Separator />
+                    <MetaRow label="Total token cost" value={`$${report.usage.total_cost_usd.toFixed(4)}`} mono />
+                    {report.usage.models_used.length > 0 && (
+                      <MetaRow label="Models" value={report.usage.models_used.join(', ')} mono />
+                    )}
                   </CardContent>
                 </Card>
-              ) : <NoAnalysisYet />}
-            </TabsContent>
-
-            <TabsContent value="logs">
-              <Card className="p-0 overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/20">
-                  <div className="flex items-center gap-2">
-                    <Terminal className="h-4 w-4 text-muted-foreground" />
-                    <SectionLabel>Log buffer</SectionLabel>
-                  </div>
-                  <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()}>
-                    <Upload className="h-3 w-3" />
-                    Upload &amp; re-analyze
-                  </Button>
-                </div>
-                <pre className="p-4 max-h-[600px] overflow-auto font-mono text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap">
-                  {logs || <span className="text-muted-foreground/60 italic">Log buffer empty. Upload a file to attach raw logs.</span>}
-                </pre>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="cookbook">
-              {!analysis ? <NoAnalysisYet /> : <CookbookPanel analysis={analysis} />}
-            </TabsContent>
-          </Tabs>
-        </div>
-
-        {/* Sticky meta sidebar */}
-        <div className="space-y-4">
-          <Card className="lg:sticky lg:top-32">
-            <CardHeader>
-              <CardTitle className="text-sm font-semibold">Incident</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-xs">
-              <MetaRow icon={Server} label="Service" value={incident.serviceName} mono />
-              <MetaRow label="Type" value={incident.incidentType} />
-              <MetaRow label="Source" value={incident.source} mono />
-              <MetaRow label="First seen" value={new Date(incident.timestamp).toLocaleString()} />
-              {incident.assignedTeam && <MetaRow label="Team" value={incident.assignedTeam} />}
-              {incident.slackChannel && (
-                <MetaRow icon={MessageSquare} label="Slack" value={incident.slackChannel} mono />
               )}
-              {incident.jiraTicket && (
-                <MetaRow icon={Ticket} label="JIRA" value={incident.jiraTicket} mono />
-              )}
-            </CardContent>
-          </Card>
 
-          {report && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <Zap className="h-4 w-4 text-primary" /> Pipeline
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-xs">
-                <MetaRow label="Run severity" value={report.severity ?? '—'} />
-                <MetaRow label="Routing path" value={report.routing_path ?? '—'} mono />
-                <MetaRow label="Validator" value={report.validator_status ?? '—'} />
-                <MetaRow
-                  label="Quality"
-                  value={report.quality_score != null ? `${report.quality_score}/10` : '—'}
-                />
-                <MetaRow label="Retries" value={String(report.retry_count)} />
-                {report.human_approval_status && (
-                  <MetaRow label="Approval" value={report.human_approval_status} />
-                )}
-                {report.escalation_required && <MetaRow label="Escalation" value="required" />}
-
-                {report.usage && (
-                  <>
-                    <Separator />
-                    <MetaRow label="LLM calls" value={String(report.usage.llm_calls)} />
-                    <MetaRow label="Tokens" value={report.usage.total_tokens.toLocaleString()} />
-                    <MetaRow label="Cost" value={`$${report.usage.total_cost_usd.toFixed(4)}`} mono />
-                  </>
-                )}
-
-                {report.execution_path.length > 0 && (
-                  <>
-                    <Separator />
-                    <SectionLabel>Execution path</SectionLabel>
+              {report.execution_path.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm font-semibold">Execution path</CardTitle>
+                  </CardHeader>
+                  <CardContent>
                     <ol className="space-y-1.5">
                       {report.execution_path.map((step, i) => (
                         <motion.li
@@ -235,14 +252,35 @@ export function IncidentDetails() {
                         </motion.li>
                       ))}
                     </ol>
-                  </>
-                )}
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           )}
-        </div>
-      </div>
+        </TabsContent>
+      </Tabs>
     </motion.div>
+  );
+}
+
+function MetaCell({ icon: Icon, label, value, mono, accent }: { icon?: React.ElementType; label: string; value: string; mono?: boolean; accent?: boolean }) {
+  return (
+    <div className={cn(
+      'rounded-lg border border-border bg-card/40 p-3',
+      accent && 'border-primary/30 bg-primary/5'
+    )}>
+      <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.18em] text-muted-foreground mb-1">
+        {Icon && <Icon className="h-3 w-3" />}
+        {label}
+      </div>
+      <div className={cn(
+        'text-sm font-medium text-foreground break-all',
+        mono && 'font-mono text-xs',
+        accent && 'text-primary'
+      )}>
+        {value}
+      </div>
+    </div>
   );
 }
 
