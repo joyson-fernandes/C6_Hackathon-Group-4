@@ -43,7 +43,7 @@ export function SettingsView() {
   const noKeyAvailable = !storedKey && serverKeyConfigured === false;
 
   return (
-    <motion.div initial={{ opacity: 0, scale: 0.99 }} animate={{ opacity: 1, scale: 1 }} className="max-w-4xl mx-auto space-y-8">
+    <motion.div initial={{ opacity: 0, scale: 0.99 }} animate={{ opacity: 1, scale: 1 }} className="w-full space-y-8">
       <div>
         <h1 className="text-3xl font-bold text-foreground tracking-tight">Configuration</h1>
         <p className="text-muted-foreground mt-1">Backend wiring, model defaults, and your personal API key.</p>
