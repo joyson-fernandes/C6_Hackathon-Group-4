@@ -48,13 +48,31 @@ Upload ops logs → 8-node LangGraph DAG classifies incidents, retrieves runbook
 
 ---
 
-## 🖼 Screenshot
+## 🖼 Screenshots
 
 <div align="center">
 
-![OpsGPT — incident analysis view (payment_errors.log)](docs/screenshots/ui_payment_errors.png)
+### Dashboard
 
-*Live-demo view of `payment_errors.log` analyzed: severity = **critical**, RAG confidence 90%, escalation L2, full pipeline metadata in the right rail. Try it yourself at [opsgpt.joysontech.com](https://opsgpt.joysontech.com).*
+![OpsGPT — System Overview](docs/screenshots/ui_dashboard.png)
+
+*Pipeline overview: 4 stat cards (active incidents, resolved 24h, AVG MTTR, total token cost), live latest-run summary with severity, routing path, validator status, quality score, retry count, and **token cost in USD** — all populated from real /api/analyze runs.*
+
+<br>
+
+### Agent Workflow
+
+![OpsGPT — Multi-Agent Workflow run RUN-1778400636229](docs/screenshots/ui_agent_workflow.png)
+
+*Per-run multi-agent panel: severity = **critical**, validator = **approved**, quality 7/10, 0 retries, **cost $0.0301 / 6,008 tokens**, routing decision (path · incident type · RAG snippets · flags), validator verdict, and issues raised by the critic for downstream review.*
+
+<br>
+
+### Incident analysis
+
+![OpsGPT — Incident analysis view (payment_errors.log)](docs/screenshots/ui_payment_errors.png)
+
+*Deep-dive on a single incident: P1 priority, affected service, RAG confidence 90%, escalation L2, executive summary, root-cause analysis, and full pipeline metadata in the right rail. Try it live at [opsgpt.joysontech.com](https://opsgpt.joysontech.com).*
 
 </div>
 
@@ -62,7 +80,7 @@ Upload ops logs → 8-node LangGraph DAG classifies incidents, retrieves runbook
 
 ## 📖 Table of Contents
 
-- [🖼 Screenshot](#-screenshot)
+- [🖼 Screenshots](#-screenshots)
 - [✨ What it does](#-what-it-does)
 - [🏗 Architecture](#-architecture)
 - [🚀 Quick start](#-quick-start)
