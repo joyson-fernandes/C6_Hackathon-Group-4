@@ -1,5 +1,5 @@
 # Convenience targets for the C6 Hackathon multi-agent DevOps suite.
-# All targets assume you have an active Python venv and Node 18+ installed.
+# All targets assume you have an active Python 3.10+ venv and Node 20+ installed.
 
 .PHONY: setup test eval run frontend smoke build-frontend clean help
 

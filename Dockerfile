@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 ARG NODE_VERSION=22
-ARG PYTHON_VERSION=3.11
+ARG PYTHON_VERSION=3.12
 
 # ---- Stage 1: build the React frontend ----
 FROM node:${NODE_VERSION}-alpine AS web

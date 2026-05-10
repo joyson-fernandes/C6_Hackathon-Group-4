@@ -19,7 +19,7 @@ Upload ops logs → 8-node LangGraph DAG classifies incidents, retrieves runbook
 
 <br>
 
-[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B%20%7C%203.12%20recommended-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Node 20+](https://img.shields.io/badge/Node-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-1C3C3C?logo=langchain&logoColor=white)](https://github.com/langchain-ai/langgraph)
@@ -177,9 +177,11 @@ flowchart TD
 
 | Requirement | Get it |
 |---|---|
-| Python 3.11+ | [python.org/downloads](https://www.python.org/downloads/) |
+| Python 3.10+ | [python.org/downloads](https://www.python.org/downloads/) — Python 3.12 recommended |
 | Node 20+ | [nodejs.org](https://nodejs.org/) |
 | OpenRouter API key | Sign up free at [openrouter.ai](https://openrouter.ai), copy from [/keys](https://openrouter.ai/keys) |
+
+> Python 3.9 is not supported because the backend uses modern type syntax such as `str | None`. On macOS, prefer Homebrew or pyenv Python 3.12 instead of the system `/usr/bin/python3`.
 
 ### One-shot setup
 
@@ -188,8 +190,9 @@ git clone https://github.com/joyson-fernandes/C6_Hackathon-Group-4.git
 cd C6_Hackathon-Group-4
 
 # Backend
-python3 -m venv .venv
+python3.12 -m venv .venv
 source .venv/bin/activate
+python --version  # should show Python 3.10+; Python 3.12 recommended
 pip install -r requirements.txt
 cp .env.example .env
 # Open .env and paste your OPENROUTER_API_KEY
