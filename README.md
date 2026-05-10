@@ -48,8 +48,21 @@ Upload ops logs → 8-node LangGraph DAG classifies incidents, retrieves runbook
 
 ---
 
+## 🖼 Screenshot
+
+<div align="center">
+
+![OpsGPT — incident analysis view (payment_errors.log)](docs/screenshots/ui_payment_errors.png)
+
+*Live-demo view of `payment_errors.log` analyzed: severity = **critical**, RAG confidence 90%, escalation L2, full pipeline metadata in the right rail. Try it yourself at [opsgpt.joysontech.com](https://opsgpt.joysontech.com).*
+
+</div>
+
+---
+
 ## 📖 Table of Contents
 
+- [🖼 Screenshot](#-screenshot)
 - [✨ What it does](#-what-it-does)
 - [🏗 Architecture](#-architecture)
 - [🚀 Quick start](#-quick-start)
